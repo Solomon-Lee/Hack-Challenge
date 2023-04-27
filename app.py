@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from google.auth.transport import requests
 import users_dao
 import datetime
+import os
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -16,9 +17,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
 
 #Make env file for google shit
-app.secret_key = 'your-secret-key-here'
-app.config['GOOGLE_CLIENT_ID'] = 'your-client-id-here'
-app.config['GOOGLE_CLIENT_SECRET'] = 'your-client-secret-here'
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24)
+app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID', None)
+app.config['GOOGLE_CLIENT_SECRET'] = os.environ.get('GOOGLE_CLIENT_SECRET', None)
 app.config['GOOGLE_DISCOVERY_URL'] = (
     'https://accounts.google.com/.well-known/openid-configuration'
 )
