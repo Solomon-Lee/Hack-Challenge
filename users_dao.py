@@ -83,3 +83,9 @@ def renew_session(update_token):
     db.session.commit()
 
     return user
+
+def get_user_by_google_id(google_id):
+    """
+    Returns a user object from the database given a Google ID
+    """
+    return User.query.filter(User.google_id == google_id).first()

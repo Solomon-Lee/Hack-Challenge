@@ -259,11 +259,11 @@ def login_with_google_oauth(google_token):
         return False, None
 
     # check if user with this Google ID already exists
-    user = get_user_by_google_id(google_id)
+    user = users_dao.get_user_by_google_id(google_id)
 
     if user is None:
         # create a new user with Google ID and access token
-        created, user = create_user(email, None, first_name, last_name, None, google_id=google_id, access_token=google_token)
+        created, user = users_dao.create_user(email, None, first_name, last_name, None, google_id=google_id, access_token=google_token)
         if not created:
             return False, None
 
