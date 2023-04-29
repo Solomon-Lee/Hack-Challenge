@@ -8,6 +8,8 @@ from google.auth.transport import requests
 import users_dao
 import datetime
 import os
+from open_ai_helper import generate_ai_response
+from db import User, Pets, PetSittingRequest
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -296,6 +298,18 @@ def get_user():
             "phone": user.phone
         }
     )
+
+def get_ai_help(user_id, pet_id, request_id, your_query_here):
+    """
+    Get openai response
+    """
+    user = User.query.get(user_id)
+    pet = Pets.query.get(pet_id)
+    pet_sitting_request = PetSittingRequest.query.get(request_id)
+
+    prompt = f"User {user.first_name} has a pet named {pet.name} and a pet sitting request from {pet_sitting_request.start_date} to {pet_sitting_request.end_date}. {your_query_here}"
+    ai_response = generate_ai_response(prompt)
+    return ai_response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
