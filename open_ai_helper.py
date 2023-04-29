@@ -6,7 +6,7 @@ openai.api_key = os.environ.get('OPENAI_API_KEY', None)
 
 def generate_ai_response(prompt):
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine='gpt-3.5-turbo',
         prompt=prompt,
         max_tokens=150,
         n=1,
