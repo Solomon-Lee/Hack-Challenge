@@ -7,6 +7,11 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+user_roles = db.Table("user_roles",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("role_id", db.Integer, db.ForeignKey("roles.id"), primary_key=True)
+)
+
 class User(db.Model):
     """
     User model
@@ -33,6 +38,7 @@ class User(db.Model):
 
     # Relationships
     pets = db.relationship("Pets", backref="user")
+    roles = db.relationship("Role", secondary=user_roles, backref=db.backref("users", lazy="dynamic"))
 
     def __init__(self, **kwargs):
         """
@@ -63,6 +69,7 @@ class User(db.Model):
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "pets": [p.simple_serialize() for p in self.pets],
+            "roles": [r.serialize() for r in self.roles]
         }
 
     def simple_serialize(self):
@@ -117,6 +124,13 @@ class User(db.Model):
         Verifies the update token of a user
         """
         return update_token == self.update_token
+    
+    def has_role(self, role_name):
+        """
+        Checks if the user has the specified role
+        """
+        return any(role.name == role_name for role in self.roles)
+
     
 
 class Pets(db.Model):
@@ -178,3 +192,148 @@ class Pets(db.Model):
             "color": self.color,
             "medical_conditions": self.medical_conditions
         }
+
+class Role(db.Model):
+    """
+    Role model
+    """
+    __tablename__ = "roles"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String, nullable=False, unique=True)
+    description = db.Column(db.String, nullable=True)
+
+    # Relationships
+    users = db.relationship("User", secondary="user_roles", backref=db.backref("roles", lazy="dynamic"))
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a Role object
+        """
+        self.name = kwargs.get("name")
+        self.description = kwargs.get("description")
+
+    def serialize(self):
+        """
+        Serializes a Role object into a dictionary
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description
+        }
+    
+    def simple_serialize(self):
+        """
+        Serializes a Role object into a dictionary without additional details
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
+
+class PetSittingRequest(db.Model):
+    __tablename__ = "pet_sitting_request"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Relationships
+    pet_owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    pet_owner = db.relationship("User", foreign_keys=[pet_owner_id])
+
+    pet_sitter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    pet_sitter = db.relationship("User", foreign_keys=[pet_sitter_id])
+
+    pet_id = db.Column(db.Integer, db.ForeignKey("pets.id"), nullable=False)
+    pet = db.relationship("Pets")
+
+    # Request details
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    additional_info = db.Column(db.String, nullable=True)
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a PetSittingRequest object
+        """
+        self.pet_owner_id = kwargs.get("pet_owner_id")
+        self.pet_sitter_id = kwargs.get("pet_sitter_id")
+        self.pet_id = kwargs.get("pet_id")
+        self.start_time = kwargs.get("start_time")
+        self.end_time = kwargs.get("end_time")
+        self.additional_info = kwargs.get("additional_info")
+
+    def serialize(self):
+        """
+        Serializes a PetSittingRequest object into a dictionary
+        """
+        return {
+            "id": self.id,
+            "pet_owner_id": self.pet_owner_id,
+            "pet_sitter_id": self.pet_sitter_id,
+            "pet_id": self.pet_id,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+            "additional_info": self.additional_info,
+        }
+    
+    def simple_serialize(self):
+        """
+        Serializes a PetSittingRequest object into a dictionary without pet and user details
+        """
+        return {
+            "id": self.id,
+            "pet_id": self.pet_id,
+            "user_id": self.user_id,
+            "start_date": self.start_date.isoformat(),
+            "end_date": self.end_date.isoformat(),
+            "additional_info": self.additional_info
+        }
+
+
+class Message(db.Model):
+    __tablename__ = "message"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Relationships
+    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    sender = db.relationship("User", foreign_keys=[sender_id], backref="sent_messages")
+
+    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    recipient = db.relationship("User", foreign_keys=[recipient_id], backref="received_messages")
+
+    # Message details
+    content = db.Column(db.String, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a Message object
+        """
+        self.sender_id = kwargs.get("sender_id")
+        self.recipient_id = kwargs.get("recipient_id")
+        self.content = kwargs.get("content")
+
+    def serialize(self):
+        """
+        Serializes a Message object into a dictionary
+        """
+        return {
+            "id": self.id,
+            "sender_id": self.sender_id,
+            "recipient_id": self.recipient_id,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+        }
+    
+    def simple_serialize(self):
+        """
+        Serializes a Message object into a dictionary without sender and recipient details
+        """
+        return {
+            "id": self.id,
+            "sender_id": self.sender_id,
+            "recipient_id": self.recipient_id,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
