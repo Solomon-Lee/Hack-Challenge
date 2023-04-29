@@ -1,7 +1,8 @@
 import openai
 import json
+import os
 
-openai.api_key = "your_openai_api_key"
+openai.api_key = os.environ.get('OPENAI_API_KEY', None)
 
 def generate_ai_response(prompt):
     response = openai.Completion.create(
