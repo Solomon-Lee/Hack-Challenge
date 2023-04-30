@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+
 user_roles = db.Table("user_roles",
     db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
     db.Column("role_id", db.Integer, db.ForeignKey("roles.id"), primary_key=True)
@@ -16,7 +17,7 @@ class User(db.Model):
     """
     User model
     """
-    __tablename__ = "user"
+    __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     # User information
@@ -37,8 +38,9 @@ class User(db.Model):
     update_token = db.Column(db.String, nullable=False, unique=True)
 
     # Relationships
-    pets = db.relationship("Pets", backref="user")
-    roles = db.relationship("Role", secondary=user_roles, backref=db.backref("users", lazy="dynamic"))
+    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users', lazy=True))
+    pets = db.relationship('Pet', backref='owner', lazy=True)
+
 
     def __init__(self, **kwargs):
         """
@@ -148,8 +150,7 @@ class Pets(db.Model):
     medical_conditions = db.Column(db.String, nullable=False)
 
     #Define relationship to user
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def __init__(self, **kwargs):
         """
@@ -202,8 +203,8 @@ class Role(db.Model):
     name = db.Column(db.String, nullable=False, unique=True)
     description = db.Column(db.String, nullable=True)
 
-    # Relationships
-    users = db.relationship("User", secondary="user_roles", backref=db.backref("roles", lazy="dynamic"))
+    #Relationship
+    users = db.relationship('User', secondary='user_roles', backref=db.backref('roles', lazy=True))
 
     def __init__(self, **kwargs):
         """
@@ -237,10 +238,10 @@ class PetSittingRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     # Relationships
-    pet_owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    pet_owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     pet_owner = db.relationship("User", foreign_keys=[pet_owner_id])
 
-    pet_sitter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    pet_sitter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     pet_sitter = db.relationship("User", foreign_keys=[pet_sitter_id])
 
     pet_id = db.Column(db.Integer, db.ForeignKey("pets.id"), nullable=False)
@@ -295,10 +296,10 @@ class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
 
     # Relationships
-    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     sender = db.relationship("User", foreign_keys=[sender_id], backref="sent_messages")
 
-    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     recipient = db.relationship("User", foreign_keys=[recipient_id], backref="received_messages")
 
     # Message details
