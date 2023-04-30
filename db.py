@@ -28,7 +28,6 @@ class User(db.Model):
     password_digest = db.Column(db.String)
 
     # Google OAuth information
-    google_user_id = db.Column(db.String, unique=True)
     access_token = db.Column(db.String)
     refresh_token = db.Column(db.String)
 
@@ -38,8 +37,8 @@ class User(db.Model):
     update_token = db.Column(db.String, nullable=False, unique=True)
 
     # Relationships
-    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users', lazy=True))
-    pets = db.relationship('Pet', backref='owner', lazy=True)
+    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users_roles', lazy=True))
+    pets = db.relationship('Pets', backref='owner', lazy=True)
 
 
     def __init__(self, **kwargs):
@@ -204,7 +203,7 @@ class Role(db.Model):
     description = db.Column(db.String, nullable=True)
 
     #Relationship
-    users = db.relationship('User', secondary='user_roles', backref=db.backref('roles', lazy=True))
+    users = db.relationship('User', secondary='user_roles', backref=db.backref('role_users', lazy=True))
 
     def __init__(self, **kwargs):
         """
