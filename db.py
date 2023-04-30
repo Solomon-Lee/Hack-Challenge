@@ -28,7 +28,7 @@ class User(db.Model):
     password_digest = db.Column(db.String)
 
     # Google OAuth information
-    google_id = db.Column(db.String, unique=True)
+    google_user_id = db.Column(db.String, unique=True)
     access_token = db.Column(db.String)
     refresh_token = db.Column(db.String)
 
@@ -52,7 +52,7 @@ class User(db.Model):
         self.first_name = kwargs.get("first_name")
         self.last_name = kwargs.get("last_name")
         self.phone = kwargs.get("phone")
-        self.google_id = kwargs.get("google_id")
+        self.google_user_id = kwargs.get("google_user_id", None)
         self.access_token = kwargs.get("access_token")
         self.refresh_token = kwargs.get("refresh_token")
         self.renew_session()

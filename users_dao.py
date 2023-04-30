@@ -84,8 +84,18 @@ def renew_session(update_token):
 
     return user
 
-def get_user_by_google_id(google_id):
-    """
-    Returns a user object from the database given a Google ID
-    """
-    return User.query.filter(User.google_id == google_id).first()
+def get_user_by_google_id(google_user_id):
+    return User.query.filter_by(google_user_id=google_user_id).first()
+
+def create_user_with_google_id(google_user_id, email, first_name, last_name):
+    user = User(
+        google_user_id=google_user_id,
+        email=email,
+        first_name=first_name,
+        last_name=last_name
+    )
+
+    db.session.add(user)
+    db.session.commit()
+    return user
+

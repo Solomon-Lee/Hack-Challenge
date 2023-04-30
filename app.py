@@ -11,6 +11,7 @@ import os
 from open_ai_helper import generate_ai_response
 from db import User, Pets, PetSittingRequest
 
+
 db_filename = "auth.db"
 app = Flask(__name__)
 
@@ -19,12 +20,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ECHO"] = True
 
 #Make env file for google shit
-app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24)
 app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID', None)
-app.config['GOOGLE_CLIENT_SECRET'] = os.environ.get('GOOGLE_CLIENT_SECRET', None)
-app.config['GOOGLE_DISCOVERY_URL'] = (
-    'https://accounts.google.com/.well-known/openid-configuration'
-)
 
 db.init_app(app)
 with app.app_context():
@@ -180,100 +176,40 @@ def logout():
 
     return success_response({"message": "You have successfully logged out!"})
 
-def get_google_provider_cfg():
-    return requests.get(app.config['GOOGLE_DISCOVERY_URL']).json()
+@app.route("/google_login/", methods=["POST"])
+def google_login():
+    token = request.json.get("id_token")
 
-def get_google_token_url(code):
-    google_provider_cfg = get_google_provider_cfg()
-    token_url = google_provider_cfg['token_endpoint']
-    headers = {'content-type': 'application/x-www-form-urlencoded'}
-    body = {
-        'grant_type': 'authorization_code',
-        'code': code,
-        'redirect_uri': url_for('google_callback', _external=True),
-        'client_id': app.config['GOOGLE_CLIENT_ID'],
-        'client_secret': app.config['GOOGLE_CLIENT_SECRET'],
-    }
-    return token_url, headers, body
+    if not token:
+        return failure_response("Missing id_token")
 
-@app.route('/login/google', methods=['GET'])
-def login_google():
-    session.clear()
-    return redirect(url_for('google_authorize'))
-
-@app.route('/authorize/google', methods=['GET'])
-def google_authorize():
-    return redirect(get_google_provider_cfg().get('authorization_endpoint') + '?' + urlencode({
-        'response_type': 'code',
-        'client_id': app.config['GOOGLE_CLIENT_ID'],
-        'redirect_uri': url_for('google_callback', _external=True),
-        'scope': 'openid email profile'
-    }))
-
-@app.route('/callback/google', methods=['GET'])
-def google_callback():
-    code = request.args.get('code')
-
-    token_url, headers, body = get_google_token_url(code)
-
-    # Fetch token
-    token_response = requests.post(
-        token_url,
-        headers=headers,
-        data=body,
-        auth=(app.config['GOOGLE_CLIENT_ID'], app.config['GOOGLE_CLIENT_SECRET']),
-    )
-
-    # Parse token
-    id_token_jwt = token_response.json()['id_token']
-    google_user_info = id_token.verify_oauth2_token(id_token_jwt, requests.Request(), app.config['GOOGLE_CLIENT_ID'])
-
-    # Get or create user
-    user_email = google_user_info['email']
-    user_given_name = google_user_info['given_name']
-    user_family_name = google_user_info['family_name']
-    user_picture_url = google_user_info['picture']
-    created, user = users_dao.get_or_create_user_by_email(
-        email=user_email,
-        given_name=user_given_name,
-        family_name=user_family_name,
-        picture_url=user_picture_url,
-    )
-
-    # Log in user
-    session['user_id'] = user.id
-
-    return redirect(url_for('index'))
-
-def login_with_google_oauth(google_token):
-    """
-    Logs in a user with Google OAuth
-
-    Returns if the login was successful, and the User object
-    """
     try:
-        google_info = requests.get(f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={google_token}").json()
-        email = google_info["email"]
-        first_name = google_info["given_name"]
-        last_name = google_info["family_name"]
-        google_id = google_info["sub"]
-    except:
-        return False, None
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), app.config["GOOGLE_CLIENT_ID"])
 
-    # check if user with this Google ID already exists
-    user = users_dao.get_user_by_google_id(google_id)
+        if idinfo["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
+            raise ValueError("Wrong issuer.")
 
-    if user is None:
-        # create a new user with Google ID and access token
-        created, user = users_dao.create_user(email, None, first_name, last_name, None, google_id=google_id, access_token=google_token)
-        if not created:
-            return False, None
+        google_user_id = idinfo["sub"]
 
-    # renew the session and return the user
-    user.renew_session()
-    db.session.commit()
+    except ValueError:
+        return failure_response("Invalid id_token")
 
-    return True, user
+    user = users_dao.get_user_by_google_id(google_user_id)
+
+    if not user:
+        email = idinfo["email"]
+        first_name = idinfo["given_name"]
+        last_name = idinfo["family_name"]
+
+        user = users_dao.create_user_with_google_id(google_user_id, email, first_name, last_name)
+
+    return json.dumps(
+        {
+            "session_token": user.session_token,
+            "update_token": user.update_token,
+            "session_expiration": str(user.session_expiration)
+        }
+    )
 
 @app.route("/user/", methods=["GET"])
 def get_user():
