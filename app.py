@@ -237,7 +237,7 @@ def google_callback():
         email=user_email,
         given_name=user_given_name,
         family_name=user_family_name,
-        picture_url=user_picture_url,
+        picture_url=user_picture_url, 
     )
 
     # Log in user
@@ -252,7 +252,7 @@ def login_with_google_oauth(google_token):
     Returns if the login was successful, and the User object
     """
     try:
-        google_info = requests.get(f"https://www.googleapis.com/oauth2/v3/userinfo?access_token={google_token}").json()
+        google_info = requests.get("https://www.googleapis.com/oauth2/v3/userinfo?access_token={google_token}").json()
         email = google_info["email"]
         first_name = google_info["given_name"]
         last_name = google_info["family_name"]
@@ -310,6 +310,65 @@ def get_ai_help(user_id, pet_id, request_id, your_query_here):
     prompt = f"User {user.first_name} has a pet named {pet.name} and a pet sitting request from {pet_sitting_request.start_date} to {pet_sitting_request.end_date}. {your_query_here}"
     ai_response = generate_ai_response(prompt)
     return ai_response
+
+
+#  ---- PET ROUTES ------------------------------------------------------------
+@app.route("/pets/", methods=["GET"])
+def get_pets():
+    """Endpoint for getting all pets"""
+
+    pets = [pet.simple_serialize() for pet in Pets.query.all()]
+    return success_response({"pets": pets})
+
+@app.route("/pet/<int:pet_id>/")
+def get_pet(pet_id):
+    """Endpoint for getting a pet with id"""
+    pet = Pets.query.filter_by(id = pet_id).first()
+    if pet is None:
+        return failure_response("User not found!")
+    return success_response(pet.simple_serialize())
+
+@app.route("/pet/<int:user_id>/", methods = ["POST"])
+def create_pet(user_id):
+    body = json.loads(request.data)
+    name = body.get("name")
+    age = body.get("age")
+    species = body.get('species')
+    breed = body.get('breed')
+    color = body.get('color')
+    medical_conditions = body.get('medical_conditions')
+    user = User.query.filter_by(id = user_id)
+
+    if name is None or age is None or species is None or breed is None or color is None or medical_conditions is None:
+        return failure_response("Need to fulfill all fields", 400)
+    new_pet = Pets(
+        name = name,
+        age = age,
+        species = species,
+        breed = breed,
+        color = color,
+        medical_conditions = medical_conditions,
+        user_id = user_id
+    )
+    db.session.add(new_pet)
+    db.session.commit()
+    return success_response(new_pet.serialize(), 201)
+
+@app.route("/pet/<int:pet_id>", methods = ["DELETE"])
+def delete_pet(pet_id):
+    """
+    Endpoint for deleting a pet with pet_id
+    """
+    pet = Pets.query.filter_by(id= pet_id).first()
+    if pet is None:
+        return failure_response("Pet not found!")
+    db.session.delete(pet)
+    db.session.commit()
+    return success_response(pet.simple_serialize())
+
+
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
