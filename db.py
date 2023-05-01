@@ -42,8 +42,8 @@ class User(db.Model):
     pets = db.relationship('Pets', backref='owner', lazy=True)
     pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
-
-
+    sent_messages = db.relationship("Message", backref="sender", lazy=True, foreign_keys="[Message.sender_id]")
+    received_messages = db.relationship("Message", backref="recipient", lazy=True, foreign_keys="[Message.recipient_id]")
 
     def __init__(self, **kwargs):
         """
@@ -78,7 +78,9 @@ class User(db.Model):
             "pets": [p.simple_serialize() for p in self.pets],
             "roles": [r.serialize() for r in self.roles],
             "pet_owner_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_owner_id == self.id],
-            "pet_sitter_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_sitter_id == self.id]
+            "pet_sitter_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_sitter_id == self.id],
+            "sent_messages": [m.serialize() for m in self.sent_messages],
+            "received_messages": [m.serialize() for m in self.received_messages]
         }
 
     def simple_serialize(self):
@@ -339,8 +341,6 @@ class Message(db.Model):
         """
         return {
             "id": self.id,
-            "sender_id": self.sender_id,
-            "recipient_id": self.recipient_id,
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
         }

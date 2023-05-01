@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest, Role
+from db import User, Pets, PetSittingRequest, Role, Message
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -237,11 +237,11 @@ def get_user():
     )
 
 @app.route("/user/<int:session_token>/", methods=["PUT"])
-def update_user(user_id):
+def update_user(session_token):
     """
     Endpoint for updating a user
     """
-    user = User.query.filter_by(id=user_id).first()
+    user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
 
@@ -552,6 +552,66 @@ def get_user_roles(session_token):
         return failure_response("User not found!")
     roles = [r.serialize() for r in user.roles]
     return success_response({"roles": roles})
+
+#Message endpoints
+@app.route("/messages/", methods=["GET"])
+def get_all_messages():
+    """
+    Endpoint for getting all messages
+    """
+    messages = Message.query.all()
+    serialized_messages = [m.serialize() for m in messages]
+    return success_response({"messages": serialized_messages})
+
+@app.route("/message/<int:message_id>/", methods=["GET"])
+def get_message_by_id(message_id):
+    """
+    Endpoint for getting a message
+    """
+    message = Message.query.filter_by(id=message_id).first()
+    if message is None:
+        return failure_response("Message not found!")
+    return success_response(message.serialize())
+
+@app.route("/message/<int:message_id>/", methods=["DELETE"])
+def delete_message(message_id):
+    """
+    Endpoint for deleting a message
+    """
+    message = Message.query.filter_by(id=message_id).first()
+    if message is None:
+        return failure_response("Message not found!")
+    db.session.delete(message)
+    db.session.commit()
+    return success_response(message.serialize())
+
+@app.route("/message/<String:sender>/<String: recipient>/", methods=["POST"])
+def create_message(sender, recipient):
+    """
+    Endpoint for creating a message
+    """
+    body = json.loads(request.data)
+    content = body.get("content")
+    sender = users_dao.get_user_by_email(sender)
+    recipient = users_dao.get_user_by_email(recipient)
+    if sender is None or recipient is None:
+        return failure_response("Sender or recipient not found!")
+    new_message = Message(message=content, sender_id=sender.id, recipient_id=recipient.id)
+    db.session.add(new_message)
+    db.session.commit()
+    return success_response(new_message.serialize())
+
+@app.route("/message/<int:session_token>/", methods=["GET"])
+def get_user_messages(session_token):
+    """
+    Endpoint for getting all messages of a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    messages = Message.query.filter_by(recipient_id=user.id).all()
+    serialized_messages = [m.serialize() for m in messages]
+    return success_response({"messages": serialized_messages})
 
 #Openai integration
 def get_ai_help(user_id, pet_id, request_id, your_query_here):
