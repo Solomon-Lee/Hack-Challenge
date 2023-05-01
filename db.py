@@ -22,10 +22,11 @@ class User(db.Model):
 
     # User information
     email = db.Column(db.String, nullable=False, unique=True)
-    first_name = db.Column(db.String, nullable=False)
-    last_name = db.Column(db.String, nullable=False)
+    first_name = db.Column(db.String, nullable=True)
+    last_name = db.Column(db.String, nullable=True)
     phone = db.Column(db.String, nullable=False)
     password_digest = db.Column(db.String)
+    gender = db.Column(db.String, nullable=True)
 
     # Google OAuth information
     access_token = db.Column(db.String)
@@ -48,12 +49,13 @@ class User(db.Model):
         self.email = kwargs.get("email")
         if "password" in kwargs:
             self.password_digest = bcrypt.hashpw(kwargs.get("password").encode("utf8"), bcrypt.gensalt(rounds=13))
-        self.first_name = kwargs.get("first_name")
-        self.last_name = kwargs.get("last_name")
+        self.first_name = kwargs.get("first_name", None)
+        self.last_name = kwargs.get("last_name", None)
         self.phone = kwargs.get("phone")
         self.google_user_id = kwargs.get("google_user_id", None)
         self.access_token = kwargs.get("access_token")
         self.refresh_token = kwargs.get("refresh_token")
+        self.gender = kwargs.get("gender", None)
         self.renew_session()
 
     def serialize(self):
@@ -66,6 +68,7 @@ class User(db.Model):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "phone": self.phone,
+            "gender": self.gender,
             "google_id": self.google_id,
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
@@ -82,6 +85,7 @@ class User(db.Model):
             "email": self.email,
             "first_name": self.first_name,
             "last_name": self.last_name,
+            "gender": self.gender,
             "phone": self.phone,
             "google_id": self.google_id,
             "access_token": self.access_token,

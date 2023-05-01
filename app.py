@@ -210,6 +210,8 @@ def google_login():
         }
     )
 
+
+#User endpoints
 @app.route("/user/", methods=["GET"])
 def get_user():
     """
@@ -230,22 +232,12 @@ def get_user():
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "gender": user.gender,
             "phone": user.phone
         }
     )
 
-def get_ai_help(user_id, pet_id, request_id, your_query_here):
-    """
-    Get openai response
-    """
-    user = User.query.get(user_id)
-    pet = Pets.query.get(pet_id)
-    pet_sitting_request = PetSittingRequest.query.get(request_id)
-
-    prompt = f"User {user.first_name} has a pet named {pet.name} and a pet sitting request from {pet_sitting_request.start_date} to {pet_sitting_request.end_date}. {your_query_here}"
-    ai_response = generate_ai_response(prompt)
-    return ai_response
-
+#Pets endpoints
 @app.route("/pets/", methods=["GET"])
 def get_pets():
     """Endpoint for getting all pets"""
@@ -298,8 +290,18 @@ def delete_pet(pet_id):
     db.session.commit()
     return success_response(pet.simple_serialize())
 
+#Openai integration
+def get_ai_help(user_id, pet_id, request_id, your_query_here):
+    """
+    Get openai response
+    """
+    user = User.query.get(user_id)
+    pet = Pets.query.get(pet_id)
+    pet_sitting_request = PetSittingRequest.query.get(request_id)
 
-
+    prompt = f"User {user.first_name} has a pet named {pet.name} and a pet sitting request from {pet_sitting_request.start_date} to {pet_sitting_request.end_date}. {your_query_here}"
+    ai_response = generate_ai_response(prompt)
+    return ai_response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
