@@ -42,8 +42,8 @@ class User(db.Model):
     pets = db.relationship('Pets', backref='owner', lazy=True)
     pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
-    sent_messages = db.relationship("Message", backref="sender", lazy=True, foreign_keys="[Message.sender_id]")
-    received_messages = db.relationship("Message", backref="recipient", lazy=True, foreign_keys="[Message.recipient_id]")
+    sent_messages = db.relationship("Message", backref="sender", lazy=True, foreign_keys="Message.sender_id")
+    received_messages = db.relationship("Message", backref="recipient", lazy=True, foreign_keys="Message.recipient_id")
 
     def __init__(self, **kwargs):
         """
