@@ -40,6 +40,9 @@ class User(db.Model):
     # Relationships
     roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users_roles', lazy=True))
     pets = db.relationship('Pets', backref='owner', lazy=True)
+    pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
+    pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
+
 
 
     def __init__(self, **kwargs):
@@ -73,7 +76,9 @@ class User(db.Model):
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "pets": [p.simple_serialize() for p in self.pets],
-            "roles": [r.serialize() for r in self.roles]
+            "roles": [r.serialize() for r in self.roles],
+            "pet_owner_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_owner_id == self.id],
+            "pet_sitter_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_sitter_id == self.id]
         }
 
     def simple_serialize(self):
@@ -153,7 +158,7 @@ class Pets(db.Model):
     medical_conditions = db.Column(db.String, nullable=False)
 
     #Define relationship to user
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     def __init__(self, **kwargs):
         """
@@ -233,6 +238,7 @@ class Role(db.Model):
         return {
             "id": self.id,
             "name": self.name,
+            "description": self.description
         }
 
 
@@ -286,8 +292,6 @@ class PetSittingRequest(db.Model):
         """
         return {
             "id": self.id,
-            "pet_id": self.pet_id,
-            "user_id": self.user_id,
             "start_date": self.start_date.isoformat(),
             "end_date": self.end_date.isoformat(),
             "additional_info": self.additional_info

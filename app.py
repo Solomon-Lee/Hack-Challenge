@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest
+from db import User, Pets, PetSittingRequest, Role
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -210,7 +210,6 @@ def google_login():
         }
     )
 
-
 #User endpoints
 @app.route("/user/", methods=["GET"])
 def get_user():
@@ -237,6 +236,32 @@ def get_user():
         }
     )
 
+@app.route("/user/<int:session_token>/", methods=["PUT"])
+def update_user(user_id):
+    """
+    Endpoint for updating a user
+    """
+    user = User.query.filter_by(id=user_id).first()
+    if user is None:
+        return failure_response("User not found!")
+
+    data = request.get_json()
+    if "email" in data:
+        user.email = data["email"]
+    if "first_name" in data:
+        user.first_name = data["first_name"]
+    if "last_name" in data:
+        user.last_name = data["last_name"]
+    if "phone" in data:
+        user.phone = data["phone"]
+    if "password_digest" in data:
+        user.password_digest = data["password_digest"]
+    if "gender" in data:
+        user.gender = data["gender"]
+
+    db.session.commit()
+    return success_response(user.serialize())
+
 #Pets endpoints
 @app.route("/pets/", methods=["GET"])
 def get_pets():
@@ -246,15 +271,15 @@ def get_pets():
     return success_response({"pets": pets})
 
 @app.route("/pet/<int:pet_id>/")
-def get_pet(pet_id):
+def get_pet_by_id(pet_id):
     """Endpoint for getting a pet with id"""
     pet = Pets.query.filter_by(id = pet_id).first()
     if pet is None:
         return failure_response("User not found!")
     return success_response(pet.simple_serialize())
 
-@app.route("/user/pet/<int:user_id>/", methods = ["POST"])
-def create_pet(user_id):
+@app.route("/user/pet/<int:session_token>/", methods = ["POST"])
+def create_pet(session_token):
     body = json.loads(request.data)
     name = body.get("name")
     age = body.get("age")
@@ -262,21 +287,16 @@ def create_pet(user_id):
     breed = body.get('breed')
     color = body.get('color')
     medical_conditions = body.get('medical_conditions')
-
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
     if name is None or age is None or species is None or breed is None or color is None or medical_conditions is None:
-        return failure_response("Need to fulfill all fields", 400)
-    new_pet = Pets(
-        name = name,
-        age = age,
-        species = species,
-        breed = breed,
-        color = color,
-        medical_conditions = medical_conditions,
-        user_id = user_id
-    )
-    db.session.add(new_pet)
+        return failure_response("Missing information!")
+    pet = Pets(name = name, age = age, species = species, breed = breed, color = color, medical_conditions = medical_conditions, user_id = user.id)
+    user.pets.append(pet)
+    db.session.add(pet)
     db.session.commit()
-    return success_response(new_pet.serialize(), 201)
+    return success_response(pet.serialize())
 
 @app.route("/pet/<int:pet_id>", methods = ["DELETE"])
 def delete_pet(pet_id):
@@ -288,7 +308,250 @@ def delete_pet(pet_id):
         return failure_response("Pet not found!")
     db.session.delete(pet)
     db.session.commit()
-    return success_response(pet.simple_serialize())
+    return success_response(pet.serialize())
+
+@app.route("/user/<int:session_token>/pets/", methods = ["GET"])
+def get_user_pets(session_token):
+    """
+    Endpoint for getting all pets of a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    pets = [pet.simple_serialize() for pet in user.pets]
+    return success_response({"pets": pets})
+
+@app.route("/user/<int:session_token>/pet/<int:pet_id>/", methods = ["DELETE"])
+def remove_pet_from_user(session_token, pet_id):
+    """
+    Endpoint for removing a pet from a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    pet = Pets.query.filter_by(id = pet_id).first()
+    if pet is None:
+        return failure_response("Pet not found!")
+    user.pets.remove(pet)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/pet/<int:pet_id>/", methods = ["PUT"])
+def update_pet(pet_id):
+    """
+    Endpoint for updating a pet
+    """
+    pet = Pets.query.filter_by(id = pet_id).first()
+    if pet is None:
+        return failure_response("Pet not found!")
+    data = request.get_json()
+    if "name" in data:
+        pet.name = data["name"]
+    if "age" in data:
+        pet.age = data["age"]
+    if "species" in data:
+        pet.species = data["species"]
+    if "breed" in data:
+        pet.breed = data["breed"]
+    if "color" in data:
+        pet.color = data["color"]
+    if "medical_conditions" in data:
+        pet.medical_conditions = data["medical_conditions"]
+    db.session.commit()
+    return success_response(pet.serialize())
+
+#Pet Sitting Request endpoints
+@app.route("/user/<int:session_token>/pet/<int:pet_id>/pet_sitting_request/", methods = ["POST"])
+def create_pet_sitting_request(session_token, pet_id):
+    """
+    Endpoint for creating a pet sitting request
+    """
+    body = json.loads(request.data)
+    start_date = body.get("start_date")
+    end_date = body.get("end_date")
+    additional_info = body.get("additional_info")
+    user = users_dao.get_user_by_session_token(session_token)
+    pet = Pets.query.filter_by(id = pet_id).first()
+
+    if user is None:
+        return failure_response("User not found!")
+    if start_date is None or end_date is None or additional_info is None:
+        return failure_response("Missing information!")
+    if pet is None:
+        return failure_response("Pet not found!")
+    pet_sitting_request = PetSittingRequest(start_date = start_date, end_date = end_date, additional_info = additional_info, pet_owner_id = user.id, pet_id = pet.id)
+    user.pet_sitting_requests.append(pet_sitting_request)
+    db.session.add(pet_sitting_request)
+    db.session.commit()
+    return success_response(pet_sitting_request.serialize())
+
+@app.route("/user/<int:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["Post"])
+def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
+    """
+    Endpoint for adding a pet sitter to a pet sitting request
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    pet_sitting_request = PetSittingRequest.query.filter_by(id = pet_sitting_request_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    if pet_sitting_request is None:
+        return failure_response("Pet sitting request not found!")
+    pet_sitting_request.pet_sitter_id = user.id
+    db.session.commit()
+    return success_response(pet_sitting_request.serialize())
+
+@app.route("/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["DELETE"])
+def delete_pet_sitting_request(pet_sitting_request_id):
+    """
+    Endpoint for deleting a pet sitting request
+    """
+    pet_sitting_request = PetSittingRequest.query.filter_by(id = pet_sitting_request_id).first()
+    if pet_sitting_request is None:
+        return failure_response("Pet sitting request not found!")
+    db.session.delete(pet_sitting_request)
+    db.session.commit()
+    return success_response(pet_sitting_request.serialize())
+
+@app.route("/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["PUT"])
+def update_pet_sitting_request(pet_sitting_request_id):
+    """
+    Endpoint for updating a pet sitting request
+    """
+    pet_sitting_request = PetSittingRequest.query.filter_by(id = pet_sitting_request_id).first()
+    if pet_sitting_request is None:
+        return failure_response("Pet sitting request not found!")
+    data = request.get_json()
+    if "start_date" in data:
+        pet_sitting_request.start_date = data["start_date"]
+    if "end_date" in data:
+        pet_sitting_request.end_date = data["end_date"]
+    if "additional_info" in data:
+        pet_sitting_request.additional_info = data["additional_info"]
+    db.session.commit()
+    return success_response(pet_sitting_request.serialize())
+
+@app.route("/pet_sitting_request")
+def get_all_pet_sitting_requests():
+    """
+    Endpoint for getting all pet sitting requests
+    """
+    pet_sitting_requests = [pet_sitting_request.serialize() for pet_sitting_request in PetSittingRequest.query.all()]
+    return success_response({"pet_sitting_requests": pet_sitting_requests})
+
+@app.route("/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["GET"])
+def get_pet_sitting_request_by_id(pet_sitting_request_id):
+    """
+    Endpoint for getting a pet sitting request
+    """
+    pet_sitting_request = PetSittingRequest.query.filter_by(id = pet_sitting_request_id).first()
+    if pet_sitting_request is None:
+        return failure_response("Pet sitting request not found!")
+    return success_response(pet_sitting_request.serialize())
+
+@app.route("/user/<int:session_token>/pet_sitting_requests/", methods=["GET"])
+def get_user_pet_sitting_requests(session_token):
+    """
+    Endpoint for getting all pet sitting requests of a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    pet_owner_requests = [r.serialize() for r in user.pet_owner_requests]
+    pet_sitter_requests = [r.serialize() for r in user.pet_sitter_requests]
+    return success_response({
+        "pet_owner_requests": pet_owner_requests,
+        "pet_sitter_requests": pet_sitter_requests
+    })
+#Role Request endpoints
+@app.route("/roles/", methods=["GET"])
+def get_all_roles():
+    """
+    Endpoint for getting all roles
+    """
+    roles = Role.query.all()
+    serialized_roles = [r.serialize() for r in roles]
+    return success_response({"roles": serialized_roles})
+
+@app.route("/role/<int:role_id>/", methods=["GET"])
+def get_role_by_id(role_id):
+    """
+    Endpoint for getting a role
+    """
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    return success_response(role.serialize())
+
+@app.route("/role/<int:role_id>/", methods=["DELETE"])
+def delete_role(role_id):
+    """
+    Endpoint for deleting a role
+    """
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    db.session.delete(role)
+    db.session.commit()
+    return success_response(role.serialize())
+
+@app.route("/role/", methods=["POST"])
+def create_roles():
+    roles = [
+        {"name": "pet_owner", "description": "Pet owner role"},
+        {"name": "pet_sitter", "description": "Pet sitter role"}
+    ]
+    for role in roles:
+        existing_role = Role.query.filter_by(name=role["name"]).first()
+        if not existing_role:
+            new_role = Role(name=role["name"], description=role["description"])
+            db.session.add(new_role)
+    db.session.commit()
+    return success_response("Roles created successfully!")
+
+@app.route("/role/<int:session_token>/", methods=["POST"])
+def add_role_to_user(session_token):
+    """
+    Endpoint for adding a role to a user
+    """
+    body = json.loads(request.data)
+    role_id = body.get("role_id")
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    user.roles.append(role)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/role/<int:session_token>/", methods=["DELETE"])
+def remove_role_from_user(session_token):
+    """
+    Endpoint for removing a role from a user
+    """
+    body = json.loads(request.data)
+    role_id = body.get("role_id")
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    user.roles.remove(role)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/role/<int:session_token>/", methods=["GET"])
+def get_user_roles(session_token):
+    """
+    Endpoint for getting all roles of a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    roles = [r.serialize() for r in user.roles]
+    return success_response({"roles": roles})
 
 #Openai integration
 def get_ai_help(user_id, pet_id, request_id, your_query_here):
