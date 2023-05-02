@@ -360,7 +360,7 @@ def create_pet_sitting_request(session_token, pet_id):
     """
     body = json.loads(request.data)
     start_time = body.get('start_time')
-    end_time = body.get("end_date")
+    end_time = body.get("end_time")
     additional_info = body.get("additional_info")
     user = users_dao.get_user_by_session_token(session_token)
     pet = Pets.query.filter_by(id = pet_id).first()
@@ -373,9 +373,9 @@ def create_pet_sitting_request(session_token, pet_id):
     user.pet_owner_requests.append(pet_sitting_request)
     db.session.add(pet_sitting_request)
     db.session.commit()
-    return success_response(pet_sitting_request.simple_serialize())
+    return success_response(pet_sitting_request.serialize())
 
-@app.route("/user/<int:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
+@app.route("/user/<string:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
 def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
     """
     Endpoint for adding a pet sitter to a pet sitting request
@@ -438,7 +438,7 @@ def get_pet_sitting_request_by_id(pet_sitting_request_id):
         return failure_response("Pet sitting request not found!")
     return success_response(pet_sitting_request.serialize())
 
-@app.route("/user/<int:session_token>/pet_sitting_requests/", methods=["GET"])
+@app.route("/user/<string:session_token>/pet_sitting_requests/", methods=["GET"])
 def get_user_pet_sitting_requests(session_token):
     """
     Endpoint for getting all pet sitting requests of a user
@@ -452,6 +452,7 @@ def get_user_pet_sitting_requests(session_token):
         "pet_owner_requests": pet_owner_requests,
         "pet_sitter_requests": pet_sitter_requests
     })
+
 #Role Request endpoints
 @app.route("/roles/", methods=["GET"])
 def get_all_roles():
