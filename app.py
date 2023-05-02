@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest, Message
+from db import User, Pets, PetSittingRequest, Role, Message
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -241,10 +241,6 @@ def update_user(session_token):
         user.phone = data["phone"]
     if "gender" in data:
         user.gender = data["gender"]
-    if "pet_sitter_role" in data:
-        user.pet_sitter_role = data["pet_sitter_role"]
-    if "pet_owner_role" in data:
-        user.pet_owner_role = data["pet_owner_role"]
 
     db.session.commit()
     return success_response(user.serialize())
@@ -447,6 +443,100 @@ def get_user_pet_sitting_requests(session_token):
         "pet_owner_requests": pet_owner_requests,
         "pet_sitter_requests": pet_sitter_requests
     })
+
+#Role Request endpoints
+@app.route("/roles/", methods=["GET"])
+def get_all_roles():
+    """
+    Endpoint for getting all roles
+    """
+    roles = Role.query.all()
+    serialized_roles = [r.serialize() for r in roles]
+    return success_response({"roles": serialized_roles})
+
+@app.route("/role/<int:role_id>/", methods=["GET"])
+def get_role_by_id(role_id):
+    """
+    Endpoint for getting a role
+    """
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    return success_response(role.serialize())
+
+@app.route("/role/<int:role_id>/", methods=["DELETE"])
+def delete_role(role_id):
+    """
+    Endpoint for deleting a role
+    """
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    db.session.delete(role)
+    db.session.commit()
+    return success_response(role.serialize())
+
+@app.route("/role/", methods=["POST"])
+def create_roles():
+    """
+    Ednpoint for creating roles
+    """
+    roles = [
+        {"name": "pet_owner", "description": "Pet owner role"},
+        {"name": "pet_sitter", "description": "Pet sitter role"}
+    ]
+    for role in roles:
+        existing_role = Role.query.filter_by(name=role["name"]).first()
+        if not existing_role:
+            new_role = Role(name=role["name"], description=role["description"])
+            db.session.add(new_role)
+    db.session.commit()
+    return success_response("Roles created successfully!")
+
+@app.route("/role/<int:session_token>/", methods=["POST"])
+def add_role_to_user(session_token):
+    """
+    Endpoint for adding a role to a user
+    """
+    body = json.loads(request.data)
+    role_id = body.get("role_id")
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    user.roles.append(role)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/role/<int:session_token>/", methods=["DELETE"])
+def remove_role_from_user(session_token):
+    """
+    Endpoint for removing a role from a user
+    """
+    body = json.loads(request.data)
+    role_id = body.get("role_id")
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    role = Role.query.filter_by(id=role_id).first()
+    if role is None:
+        return failure_response("Role not found!")
+    user.roles.remove(role)
+    db.session.commit()
+    return success_response(user.serialize())
+
+@app.route("/role/<int:session_token>/", methods=["GET"])
+def get_user_roles(session_token):
+    """
+    Endpoint for getting all roles of a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    roles = [r.serialize() for r in user.roles]
+    return success_response({"roles": roles})
 
 #Message endpoints
 @app.route("/messages/", methods=["GET"])

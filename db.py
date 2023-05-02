@@ -26,8 +26,6 @@ class User(db.Model):
     phone = db.Column(db.String, nullable=True)
     password_digest = db.Column(db.String)
     gender = db.Column(db.String, nullable=True)
-    pet_sitter_role = db.Column(db.Boolean, nullable=False, default=False)
-    pet_owner_role = db.Column(db.Boolean, nullable=False, default=True)
 
     # Google OAuth information
     access_token = db.Column(db.String)
@@ -39,6 +37,7 @@ class User(db.Model):
     update_token = db.Column(db.String, nullable=False, unique=True)
 
     # Relationships
+    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users_roles', lazy=True))
     pets = db.relationship('Pets', backref='owner', lazy=True)
     pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
@@ -58,8 +57,6 @@ class User(db.Model):
         self.access_token = kwargs.get("access_token")
         self.refresh_token = kwargs.get("refresh_token")
         self.gender = kwargs.get("gender", None)
-        self.pet_sitter_role = kwargs.get("pet_sitter_role", False)
-        self.pet_owner_role = kwargs.get("pet_owner_role", True)
         self.renew_session()
 
     def serialize(self):
@@ -75,8 +72,7 @@ class User(db.Model):
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "pets": [p.simple_serialize() for p in self.pets],
-            "pet_sitter_role": self.pet_sitter_role,
-            "pet_owner_role": self.pet_owner_role,
+            "roles": [r.serialize() for r in self.roles],
             "pet_owner_requests": [r.serialize() for r in self.pet_owner_requests if r.pet_owner_id == self.id],
             "pet_sitter_requests": [r.serialize() for r in self.pet_sitter_requests if r.pet_sitter_id == self.id],
             "sent_messages": [m.serialize() for m in self.sent_messages],
@@ -93,8 +89,6 @@ class User(db.Model):
             "username": self.username,
             "gender": self.gender,
             "phone": self.phone,
-            "pet_sitter_role": self.pet_sitter_role,
-            "pet_owner_role": self.pet_owner_role
         }
 
     def _urlsafe_base_64(self):
@@ -140,6 +134,8 @@ class User(db.Model):
         Checks if the user has the specified role
         """
         return any(role.name == role_name for role in self.roles)
+
+    
 
 class Pets(db.Model):
     """
@@ -199,6 +195,46 @@ class Pets(db.Model):
             "color": self.color,
             "medical_conditions": self.medical_conditions
         }
+
+class Role(db.Model):
+    """
+    Role model
+    """
+    __tablename__ = "roles"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String, nullable=False, unique=True)
+    description = db.Column(db.String, nullable=True)
+
+    #Relationship
+    users = db.relationship('User', secondary='user_roles', backref=db.backref('role_users', lazy=True))
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a Role object
+        """
+        self.name = kwargs.get("name")
+        self.description = kwargs.get("description")
+
+    def serialize(self):
+        """
+        Serializes a Role object into a dictionary
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description
+        }
+    
+    def simple_serialize(self):
+        """
+        Serializes a Role object into a dictionary without additional details
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description
+        }
+
 
 class PetSittingRequest(db.Model):
     __tablename__ = "pet_sitting_request"
