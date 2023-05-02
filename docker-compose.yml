@@ -2,7 +2,7 @@ version: '3'
 
 services:
   demo:
-    image: solosl:hackChallenge
+    image: solosl/hackchallenge
     ports:
       - "80:8000"
     env_file: .env
