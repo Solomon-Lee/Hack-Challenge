@@ -493,7 +493,7 @@ def create_roles():
     db.session.commit()
     return success_response("Roles created successfully!")
 
-@app.route("/role/<int:session_token>/", methods=["POST"])
+@app.route("/role/<string:session_token>/", methods=["POST"])
 def add_role_to_user(session_token):
     """
     Endpoint for adding a role to a user
@@ -510,7 +510,7 @@ def add_role_to_user(session_token):
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/role/<int:session_token>/", methods=["DELETE"])
+@app.route("/role/<string:session_token>/", methods=["DELETE"])
 def remove_role_from_user(session_token):
     """
     Endpoint for removing a role from a user
@@ -527,7 +527,7 @@ def remove_role_from_user(session_token):
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/role/<int:session_token>/", methods=["GET"])
+@app.route("/role/<string:session_token>/", methods=["GET"])
 def get_user_roles(session_token):
     """
     Endpoint for getting all roles of a user
@@ -570,15 +570,15 @@ def delete_message(message_id):
     db.session.commit()
     return success_response(message.serialize())
 
-@app.route("/message/<string:sender>/<string:recipient>/", methods=["POST"])
-def create_message(sender, recipient):
+@app.route("/message/<string:sender_token>/<string:recipient_token>/", methods=["POST"])
+def create_message(sender_token, recipient_token):
     """
     Endpoint for creating a message
     """
     body = json.loads(request.data)
     content = body.get("content")
-    sender = users_dao.get_user_by_email(sender)
-    recipient = users_dao.get_user_by_email(recipient)
+    sender = users_dao.get_user_by_session_token(sender_token)
+    recipient = users_dao.get_user_by_session_token(recipient_token)
     if sender is None or recipient is None:
         return failure_response("Sender or recipient not found!")
     new_message = Message(message=content, sender_id=sender.id, recipient_id=recipient.id)
@@ -586,7 +586,7 @@ def create_message(sender, recipient):
     db.session.commit()
     return success_response(new_message.serialize())
 
-@app.route("/message/<int:session_token>/", methods=["GET"])
+@app.route("/message/<string:session_token>/", methods=["GET"])
 def get_user_messages(session_token):
     """
     Endpoint for getting all messages of a user
