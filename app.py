@@ -227,6 +227,14 @@ def get_user():
     
     return success_response(user.serialize())
 
+@app.route("/all_users/", methods=["GET"])
+def get_all_users():
+    """
+    Endpoint for getting all users
+    """
+    users = [user.serialize() for user in users_dao.get_all_users()]
+    return success_response({"users": users})
+
 @app.route("/user/<string:session_token>/", methods=["PUT"])
 def update_user(session_token):
     """
@@ -570,15 +578,15 @@ def delete_message(message_id):
     db.session.commit()
     return success_response(message.serialize())
 
-@app.route("/message/<string:sender_token>/<string:recipient_token>/", methods=["POST"])
-def create_message(sender_token, recipient_token):
+@app.route("/message/<string:sender_email>/<string:recipient_email>/", methods=["POST"])
+def create_message(sender_email, recipient_email):
     """
     Endpoint for creating a message
     """
     body = json.loads(request.data)
     content = body.get("content")
-    sender = users_dao.get_user_by_session_token(sender_token)
-    recipient = users_dao.get_user_by_session_token(recipient_token)
+    sender = users_dao.get_user_by_email(sender_email)
+    recipient = users_dao.get_user_by_email(recipient_email)
     if sender is None or recipient is None:
         return failure_response("Sender or recipient not found!")
     new_message = Message(message=content, sender_id=sender.id, recipient_id=recipient.id)

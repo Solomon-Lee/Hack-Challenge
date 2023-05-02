@@ -14,6 +14,12 @@ def get_user_by_email(email):
     """
     return User.query.filter(User.email == email).first()
 
+def get_user_by_username(username):
+    """
+    Returns a user object from the database given a username
+    """
+    return User.query.filter(User.username == username).first()
+
 
 def get_user_by_session_token(session_token):
     """
@@ -83,6 +89,9 @@ def renew_session(update_token):
     db.session.commit()
 
     return user
+
+def get_all_users():
+    return User.query.all()
 
 def get_user_by_google_id(google_user_id):
     return User.query.filter_by(google_user_id=google_user_id).first()
