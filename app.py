@@ -66,14 +66,13 @@ def register_account():
     body = json.loads(request.data)
     email = body.get("email")
     password = body.get("password")
-    first_name = body.get("first_name")
-    last_name = body.get("last_name")
+    username = body.get("username")
     phone = body.get("phone")
 
-    if email is None or password is None or first_name is None or last_name is None or phone is None:
-        return failure_response("Email, password, first name, last name, or phone not provided")
+    if email is None or password is None or username is None or phone is None:
+        return failure_response("Email, password, username, or phone not provided")
     
-    created, user = users_dao.create_user(email, password, first_name, last_name, phone)
+    created, user = users_dao.create_user(email, password, username, phone)
 
     if not created:
         return failure_response("User already exists")
@@ -229,10 +228,11 @@ def get_user():
     return success_response(
         {
             "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
+            "username": user.username,
             "gender": user.gender,
-            "phone": user.phone
+            "phone": user.phone,
+            "pets": [pet.simple_serialize() for pet in user.pets],
+            "roles": [role.simple_serialize() for role in user.roles]
         }
     )
 
@@ -246,16 +246,8 @@ def update_user(session_token):
         return failure_response("User not found!")
 
     data = request.get_json()
-    if "email" in data:
-        user.email = data["email"]
-    if "first_name" in data:
-        user.first_name = data["first_name"]
-    if "last_name" in data:
-        user.last_name = data["last_name"]
     if "phone" in data:
         user.phone = data["phone"]
-    if "password_digest" in data:
-        user.password_digest = data["password_digest"]
     if "gender" in data:
         user.gender = data["gender"]
 
@@ -496,6 +488,9 @@ def delete_role(role_id):
 
 @app.route("/role/", methods=["POST"])
 def create_roles():
+    """
+    Ednpoint for creating roles
+    """
     roles = [
         {"name": "pet_owner", "description": "Pet owner role"},
         {"name": "pet_sitter", "description": "Pet sitter role"}
@@ -585,7 +580,7 @@ def delete_message(message_id):
     db.session.commit()
     return success_response(message.serialize())
 
-@app.route("/message/<String:sender>/<String: recipient>/", methods=["POST"])
+@app.route("/message/<string:sender>/<string:recipient>/", methods=["POST"])
 def create_message(sender, recipient):
     """
     Endpoint for creating a message

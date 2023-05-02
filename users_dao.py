@@ -41,7 +41,7 @@ def verify_credentials(email, password):
     return optional_user.verify_password(password), optional_user
 
 
-def create_user(email, password, first_name, last_name, phone, google_user_id=None, access_token=None):
+def create_user(email, password, username, phone, gender=None,google_user_id=None, access_token=None):
     """
     Creates a User object in the database
 
@@ -53,7 +53,7 @@ def create_user(email, password, first_name, last_name, phone, google_user_id=No
     if optional_user is not None:
         return False, optional_user
     
-    user = User(email=email, password=password, first_name=first_name, last_name=last_name, phone=phone)
+    user = User(email=email, password=password, username=username, phone=phone, gender=gender)
 
     if google_user_id is not None:
         user.google_id = google_user_id

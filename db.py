@@ -22,9 +22,8 @@ class User(db.Model):
 
     # User information
     email = db.Column(db.String, nullable=False, unique=True)
-    first_name = db.Column(db.String, nullable=True)
-    last_name = db.Column(db.String, nullable=True)
-    phone = db.Column(db.String, nullable=False)
+    username = db.Column(db.String, nullable=True, unique=True)
+    phone = db.Column(db.String, nullable=True)
     password_digest = db.Column(db.String)
     gender = db.Column(db.String, nullable=True)
 
@@ -52,8 +51,7 @@ class User(db.Model):
         self.email = kwargs.get("email")
         if "password" in kwargs:
             self.password_digest = bcrypt.hashpw(kwargs.get("password").encode("utf8"), bcrypt.gensalt(rounds=13))
-        self.first_name = kwargs.get("first_name", None)
-        self.last_name = kwargs.get("last_name", None)
+        self.username = kwargs.get("username", None)
         self.phone = kwargs.get("phone")
         self.google_user_id = kwargs.get("google_user_id", None)
         self.access_token = kwargs.get("access_token")
@@ -68,8 +66,7 @@ class User(db.Model):
         return {
             "id": self.id,
             "email": self.email,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
+            "username": self.username,
             "phone": self.phone,
             "gender": self.gender,
             "google_id": self.google_id,
@@ -90,8 +87,7 @@ class User(db.Model):
         return {
             "id": self.id,
             "email": self.email,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
+            "username": self.username,
             "gender": self.gender,
             "phone": self.phone,
             "google_id": self.google_id,
