@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest, Role, Message
+from db import User, Pets, PetSittingRequest, Message
 
 db_filename = "auth.db"
 app = Flask(__name__)
