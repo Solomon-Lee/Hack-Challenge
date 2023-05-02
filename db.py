@@ -67,8 +67,9 @@ class User(db.Model):
             "username": self.username,
             "phone": self.phone,
             "gender": self.gender,
-            "access_token": self.access_token,
-            "refresh_token": self.refresh_token,
+            "session_token": self.session_token,
+            "update_token": self.update_token,
+            "session_expiration": str(self.session_expiration),
             "pets": [p.simple_serialize() for p in self.pets],
             "roles": [r.serialize() for r in self.roles],
             "pet_owner_requests": [r.serialize() for r in self.pet_owner_requests if r.pet_owner_id == self.id],
@@ -87,6 +88,9 @@ class User(db.Model):
             "username": self.username,
             "gender": self.gender,
             "phone": self.phone,
+            "session_token": self.session_token,
+            "update_token": self.update_token,
+            "session_expiration": str(self.session_expiration)
         }
 
     def _urlsafe_base_64(self):
