@@ -236,7 +236,7 @@ def get_user():
         }
     )
 
-@app.route("/user/<int:session_token>/", methods=["PUT"])
+@app.route("/user/<string:session_token>/", methods=["PUT"])
 def update_user(session_token):
     """
     Endpoint for updating a user
@@ -252,7 +252,7 @@ def update_user(session_token):
         user.gender = data["gender"]
 
     db.session.commit()
-    return success_response(user.serialize())
+    return success_response(user.simple_serialize())
 
 #Pets endpoints
 @app.route("/pets/", methods=["GET"])
@@ -270,7 +270,7 @@ def get_pet_by_id(pet_id):
         return failure_response("User not found!")
     return success_response(pet.simple_serialize())
 
-@app.route("/user/pet/<int:session_token>/", methods = ["POST"])
+@app.route("/user/pet/<string:session_token>/", methods = ["POST"])
 def create_pet(session_token):
     body = json.loads(request.data)
     name = body.get("name")
@@ -288,7 +288,7 @@ def create_pet(session_token):
     user.pets.append(pet)
     db.session.add(pet)
     db.session.commit()
-    return success_response(pet.serialize())
+    return success_response(pet.simple_serialize())
 
 @app.route("/pet/<int:pet_id>", methods = ["DELETE"])
 def delete_pet(pet_id):
@@ -300,9 +300,9 @@ def delete_pet(pet_id):
         return failure_response("Pet not found!")
     db.session.delete(pet)
     db.session.commit()
-    return success_response(pet.serialize())
+    return success_response(pet.simple_serialize())
 
-@app.route("/user/<int:session_token>/pets/", methods = ["GET"])
+@app.route("/user/<string:session_token>/pets/", methods = ["GET"])
 def get_user_pets(session_token):
     """
     Endpoint for getting all pets of a user
@@ -313,7 +313,7 @@ def get_user_pets(session_token):
     pets = [pet.simple_serialize() for pet in user.pets]
     return success_response({"pets": pets})
 
-@app.route("/user/<int:session_token>/pet/<int:pet_id>/", methods = ["DELETE"])
+@app.route("/user/<string:session_token>/pet/<int:pet_id>/", methods = ["DELETE"])
 def remove_pet_from_user(session_token, pet_id):
     """
     Endpoint for removing a pet from a user
@@ -326,7 +326,7 @@ def remove_pet_from_user(session_token, pet_id):
         return failure_response("Pet not found!")
     user.pets.remove(pet)
     db.session.commit()
-    return success_response(user.serialize())
+    return success_response(pet.simple_serialize())
 
 @app.route("/pet/<int:pet_id>/", methods = ["PUT"])
 def update_pet(pet_id):
@@ -350,34 +350,32 @@ def update_pet(pet_id):
     if "medical_conditions" in data:
         pet.medical_conditions = data["medical_conditions"]
     db.session.commit()
-    return success_response(pet.serialize())
+    return success_response(pet.simple_serialize())
 
 #Pet Sitting Request endpoints
-@app.route("/user/<int:session_token>/pet/<int:pet_id>/pet_sitting_request/", methods = ["POST"])
+@app.route("/user/<string:session_token>/pet/<string:pet_id>/pet_sitting_request/", methods = ["POST"])
 def create_pet_sitting_request(session_token, pet_id):
     """
     Endpoint for creating a pet sitting request
     """
     body = json.loads(request.data)
-    start_date = body.get("start_date")
-    end_date = body.get("end_date")
+    start_time = body.get('start_time')
+    end_time = body.get("end_date")
     additional_info = body.get("additional_info")
     user = users_dao.get_user_by_session_token(session_token)
     pet = Pets.query.filter_by(id = pet_id).first()
 
     if user is None:
         return failure_response("User not found!")
-    if start_date is None or end_date is None or additional_info is None:
-        return failure_response("Missing information!")
     if pet is None:
         return failure_response("Pet not found!")
-    pet_sitting_request = PetSittingRequest(start_date = start_date, end_date = end_date, additional_info = additional_info, pet_owner_id = user.id, pet_id = pet.id)
-    user.pet_sitting_requests.append(pet_sitting_request)
+    pet_sitting_request = PetSittingRequest(pet_id = pet.id, pet_owner_id = user.id, start_time = start_time, end_time = end_time, additional_info = additional_info)
+    user.pet_owner_requests.append(pet_sitting_request)
     db.session.add(pet_sitting_request)
     db.session.commit()
-    return success_response(pet_sitting_request.serialize())
+    return success_response(pet_sitting_request.simple_serialize())
 
-@app.route("/user/<int:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["Post"])
+@app.route("/user/<int:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
 def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
     """
     Endpoint for adding a pet sitter to a pet sitting request

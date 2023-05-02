@@ -22,7 +22,7 @@ class User(db.Model):
 
     # User information
     email = db.Column(db.String, nullable=False, unique=True)
-    username = db.Column(db.String, nullable=True, unique=True)
+    username = db.Column(db.String, nullable=True, unique=False)
     phone = db.Column(db.String, nullable=True)
     password_digest = db.Column(db.String)
     gender = db.Column(db.String, nullable=True)
@@ -41,8 +41,8 @@ class User(db.Model):
     pets = db.relationship('Pets', backref='owner', lazy=True)
     pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
-    sent_messages = db.relationship("Message", backref="sender", lazy=True, foreign_keys="Message.sender_id")
-    received_messages = db.relationship("Message", backref="recipient", lazy=True, foreign_keys="Message.recipient_id")
+    sent_messages_from_user = db.relationship("Message", backref="sender_user", lazy=True, foreign_keys="Message.sender_id")
+    received_messages_for_user = db.relationship("Message", backref="recipient_user", lazy=True, foreign_keys="Message.recipient_id")
 
     def __init__(self, **kwargs):
         """
@@ -69,13 +69,12 @@ class User(db.Model):
             "username": self.username,
             "phone": self.phone,
             "gender": self.gender,
-            "google_id": self.google_id,
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "pets": [p.simple_serialize() for p in self.pets],
             "roles": [r.serialize() for r in self.roles],
-            "pet_owner_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_owner_id == self.id],
-            "pet_sitter_requests": [r.serialize() for r in self.pet_sitting_requests if r.pet_sitter_id == self.id],
+            "pet_owner_requests": [r.serialize() for r in self.pet_owner_requests if r.pet_owner_id == self.id],
+            "pet_sitter_requests": [r.serialize() for r in self.pet_sitter_requests if r.pet_sitter_id == self.id],
             "sent_messages": [m.serialize() for m in self.sent_messages],
             "received_messages": [m.serialize() for m in self.received_messages]
         }
@@ -90,9 +89,6 @@ class User(db.Model):
             "username": self.username,
             "gender": self.gender,
             "phone": self.phone,
-            "google_id": self.google_id,
-            "access_token": self.access_token,
-            "refresh_token": self.refresh_token,
         }
 
     def _urlsafe_base_64(self):
@@ -243,28 +239,26 @@ class Role(db.Model):
 class PetSittingRequest(db.Model):
     __tablename__ = "pet_sitting_request"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    # Request details
+    additional_info = db.Column(db.String, nullable=False)
+    start_time = db.Column(db.String, nullable=False)
+    end_time = db.Column(db.String, nullable=False)
+
 
     # Relationships
     pet_owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    pet_owner = db.relationship("User", foreign_keys=[pet_owner_id])
+    pet_owner = db.relationship("User", foreign_keys=pet_owner_id)
 
     pet_sitter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    pet_sitter = db.relationship("User", foreign_keys=[pet_sitter_id])
+    pet_sitter = db.relationship("User", foreign_keys=pet_sitter_id)
 
     pet_id = db.Column(db.Integer, db.ForeignKey("pets.id"), nullable=False)
     pet = db.relationship("Pets")
-
-    # Request details
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    additional_info = db.Column(db.String, nullable=True)
 
     def __init__(self, **kwargs):
         """
         Initializes a PetSittingRequest object
         """
-        self.pet_owner_id = kwargs.get("pet_owner_id")
-        self.pet_sitter_id = kwargs.get("pet_sitter_id")
         self.pet_id = kwargs.get("pet_id")
         self.start_time = kwargs.get("start_time")
         self.end_time = kwargs.get("end_time")
@@ -279,8 +273,8 @@ class PetSittingRequest(db.Model):
             "pet_owner_id": self.pet_owner_id,
             "pet_sitter_id": self.pet_sitter_id,
             "pet_id": self.pet_id,
-            "start_time": self.start_time.isoformat(),
-            "end_time": self.end_time.isoformat(),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
             "additional_info": self.additional_info,
         }
     
@@ -290,8 +284,8 @@ class PetSittingRequest(db.Model):
         """
         return {
             "id": self.id,
-            "start_date": self.start_date.isoformat(),
-            "end_date": self.end_date.isoformat(),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
             "additional_info": self.additional_info
         }
 
@@ -302,10 +296,10 @@ class Message(db.Model):
 
     # Relationships
     sender_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    sender = db.relationship("User", foreign_keys=[sender_id], backref="sent_messages")
+    sender = db.relationship("User", foreign_keys=sender_id, backref="sent_messages")
 
     recipient_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    recipient = db.relationship("User", foreign_keys=[recipient_id], backref="received_messages")
+    recipient = db.relationship("User", foreign_keys=recipient_id, backref="received_messages")
 
     # Message details
     content = db.Column(db.String, nullable=False)
