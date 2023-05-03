@@ -16,11 +16,6 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-user_roles = db.Table("user_roles",
-    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
-    db.Column("role_id", db.Integer, db.ForeignKey("roles.id"), primary_key=True)
-)
-
 EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
 BASE_DIR = os.getcwd()
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
