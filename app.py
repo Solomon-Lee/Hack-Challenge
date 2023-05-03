@@ -253,6 +253,19 @@ def update_user(session_token):
     db.session.commit()
     return success_response(user.serialize())
 
+@app.route("/user/<string:session_token>/", methods=["DELETE"])
+def delete_user(session_token):
+    """
+    Endpoint for deleting a user
+    """
+    user = users_dao.get_user_by_session_token(session_token)
+    if user is None:
+        return failure_response("User not found!")
+    
+    db.session.delete(user)
+    db.session.commit()
+    return success_response(user.serialize())
+
 #Pets endpoints
 @app.route("/pets/", methods=["GET"])
 def get_pets():
@@ -589,7 +602,7 @@ def create_message(sender_email, recipient_email):
     recipient = users_dao.get_user_by_email(recipient_email)
     if sender is None or recipient is None:
         return failure_response("Sender or recipient not found!")
-    new_message = Message(content=content, sender_id=sender.id, recipient_id=recipient.id)
+    new_message = Message(content=content, sender_id=sender.id, recipient_id=recipient.id, timestamp = datetime.datetime.utcnow())
     db.session.add(new_message)
     db.session.commit()
     return success_response(new_message.serialize())

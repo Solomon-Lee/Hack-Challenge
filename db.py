@@ -305,6 +305,7 @@ class Message(db.Model):
 
     # Message details
     content = db.Column(db.String, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
 
     def __init__(self, **kwargs):
         """
@@ -322,7 +323,8 @@ class Message(db.Model):
             "id": self.id,
             "sender_id": self.sender_id,
             "recipient_id": self.recipient_id,
-            "content": self.content
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
         }
     
     def simple_serialize(self):
@@ -331,6 +333,7 @@ class Message(db.Model):
         """
         return {
             "id": self.id,
-            "content": self.content
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat(),
         }
 
