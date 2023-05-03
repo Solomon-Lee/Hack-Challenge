@@ -24,7 +24,7 @@ user_roles = db.Table("user_roles",
 EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
 BASE_DIR = os.getcwd()
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
-S3_BASE_URL = f"https://{S3_BUCKET}.s3.us-east-1.amazonaws.com"
+S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
 
 class Asset(db.Model):
     """
