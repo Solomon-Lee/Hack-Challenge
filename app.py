@@ -300,7 +300,7 @@ def create_pet(session_token):
     user.pets.append(pet)
     db.session.add(pet)
     db.session.commit()
-    return success_response(pet.simple_serialize())
+    return success_response(pet.simple_serialize(), 201)
 
 @app.route("/pet/<int:pet_id>", methods = ["DELETE"])
 def delete_pet(pet_id):
@@ -385,7 +385,7 @@ def create_pet_sitting_request(session_token, pet_id):
     user.pet_owner_requests.append(pet_sitting_request)
     db.session.add(pet_sitting_request)
     db.session.commit()
-    return success_response(pet_sitting_request.serialize())
+    return success_response(pet_sitting_request.serialize(), 201)
 
 @app.route("/user/<string:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
 def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
@@ -400,7 +400,7 @@ def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
         return failure_response("Pet sitting request not found!")
     pet_sitting_request.pet_sitter_id = user.id
     db.session.commit()
-    return success_response(pet_sitting_request.serialize())
+    return success_response(pet_sitting_request.serialize(), 201)
 
 @app.route("/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["DELETE"])
 def delete_pet_sitting_request(pet_sitting_request_id):
@@ -412,7 +412,7 @@ def delete_pet_sitting_request(pet_sitting_request_id):
         return failure_response("Pet sitting request not found!")
     db.session.delete(pet_sitting_request)
     db.session.commit()
-    return success_response(pet_sitting_request.serialize())
+    return success_response(pet_sitting_request.serialize(), 202)
 
 @app.route("/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["PUT"])
 def update_pet_sitting_request(pet_sitting_request_id):
@@ -430,7 +430,7 @@ def update_pet_sitting_request(pet_sitting_request_id):
     if "additional_info" in data:
         pet_sitting_request.additional_info = data["additional_info"]
     db.session.commit()
-    return success_response(pet_sitting_request.serialize())
+    return success_response(pet_sitting_request.serialize(), 200)
 
 @app.route("/pet_sitting_request")
 def get_all_pet_sitting_requests():
@@ -512,7 +512,7 @@ def create_roles():
             new_role = Role(name=role["name"], description=role["description"])
             db.session.add(new_role)
     db.session.commit()
-    return success_response("Roles created successfully!")
+    return success_response("Roles created successfully!", 201)
 
 @app.route("/role/<string:session_token>/", methods=["POST"])
 def add_role_to_user(session_token):
@@ -529,7 +529,7 @@ def add_role_to_user(session_token):
         return failure_response("Role not found!")
     user.roles.append(role)
     db.session.commit()
-    return success_response(user.serialize())
+    return success_response(user.serialize(), 201)
 
 @app.route("/role/<string:session_token>/", methods=["DELETE"])
 def remove_role_from_user(session_token):
@@ -605,7 +605,7 @@ def create_message(sender_email, recipient_email):
     new_message = Message(content=content, sender_id=sender.id, recipient_id=recipient.id, timestamp = datetime.datetime.utcnow())
     db.session.add(new_message)
     db.session.commit()
-    return success_response(new_message.serialize())
+    return success_response(new_message.serialize(), 201)
 
 @app.route("/message/<string:session_token>/", methods=["GET"])
 def get_user_messages(session_token):
