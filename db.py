@@ -23,7 +23,7 @@ user_roles = db.Table("user_roles",
 
 EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
 BASE_DIR = os.getcwd()
-S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
+S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET}.s3.us-east-1.amazonaws.com"
 
 class Asset(db.Model):
@@ -70,7 +70,13 @@ class Asset(db.Model):
                 raise Exception("Extension {ext} not supported")
             
             #Generates a random string for image filename
-            salt = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+            salt = "".join(
+                random.SystemRandom().choice(
+                    string.ascii_uppercase + string.digits
+                )
+
+                for _ in range(16)
+            )
 
             #Removes base64 header
             img_str = re.sub("^data:image/.+;base64,", "", image_data)
@@ -84,7 +90,7 @@ class Asset(db.Model):
             self.height = img.height
             self.created_at = datetime.datetime.now()
 
-            img_filename = f"{self.salt}.{self.ext}"
+            img_filename = f"{self.salt}.{self.extension}"
             self.upload(img, img_filename)
         except Exception as e:
             print(f"Error creating asset: {e}")
@@ -99,11 +105,11 @@ class Asset(db.Model):
 
             #upload image to S3
             s3_client = boto3.client("s3")
-            s3_client.upload_file(img_temploc, S3_BUCKET, img_filename)
+            s3_client.upload_file(img_temploc, S3_BUCKET_NAME, img_filename)
 
             #make s3 image url public
             s3_resource = boto3.resource("s3")
-            object_acl = s3_resource.ObjectAcl(S3_BUCKET, img_filename)
+            object_acl = s3_resource.ObjectAcl(S3_BUCKET_NAME, img_filename)
             object_acl.put(ACL="public-read")
 
             #Remove image from server
