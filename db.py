@@ -1,6 +1,15 @@
 import datetime
 import hashlib
 import os
+import base64
+import io
+from io import BytesIO
+import boto3
+from mimetypes import guess_extension, guess_type
+from PIL import Image
+import random
+import re
+import string
 
 import bcrypt
 from flask_sqlalchemy import SQLAlchemy
@@ -11,6 +20,100 @@ user_roles = db.Table("user_roles",
     db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
     db.Column("role_id", db.Integer, db.ForeignKey("roles.id"), primary_key=True)
 )
+
+EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
+BASE_DIR = os.getcwd()
+S3_BUCKET = os.environ.get("S3_BUCKET_NAME")
+S3_BASE_URL = f"https://{S3_BUCKET}.s3.us-east-1.amazonaws.com"
+
+class Asset(db.Model):
+    """
+    Asset model
+    """
+    __tablename__ = "assets"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    base_url = db.Column(db.String, nullable=True)
+    salt = db.Column(db.String, nullable=True)
+    extension = db.Column(db.String, nullable=True)
+    width = db.Column(db.Integer, nullable=True)
+    height = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+
+    def __init__(self, **kwargs):
+        """
+        Initializes an Asset object
+        """
+        self.create(kwargs.get("image_data"))
+    
+    def serialize(self):
+        """
+        Returns a dictionary representation of an Asset object
+        """
+        return {
+            "base_url": f"{self.base_url}/{self.salt}.{self.extension}",
+            "created_at": str(self.created_at)
+        }
+    
+    def create(self, image_data):
+        """
+        Given an image in base64 form does the following:
+            1. Rejects image if not in supported file types
+            2. Generates a random string for image filename
+            3. Decodes the image and attempts to upload it to AWS
+        """
+
+        try:
+            ext = guess_extension(guess_type(image_data)[0])[1:]
+
+            #Only accepts supported file extension
+            if ext not in EXTENSIONS:
+                raise Exception("Extension {ext} not supported")
+            
+            #Generates a random string for image filename
+            salt = "".join(random.choices(string.ascii_letters + string.digits, k=16))
+
+            #Removes base64 header
+            img_str = re.sub("^data:image/.+;base64,", "", image_data)
+            img_data = base64.b64decode(img_str)
+            img = Image.open(BytesIO(img_data))
+
+            self.base_url = S3_BASE_URL
+            self.salt = salt
+            self.extension = ext
+            self.width = img.width
+            self.height = img.height
+            self.created_at = datetime.datetime.now()
+
+            img_filename = f"{self.salt}.{self.ext}"
+            self.upload(img, img_filename)
+        except Exception as e:
+            print(f"Error creating asset: {e}")
+        
+    def upload(self, img, img_filename):
+        """
+        Uploads image to AWS
+        """
+        try:
+            img_temploc = f"{BASE_DIR}/{img_filename}"
+            img.save(img_temploc)
+
+            #upload image to S3
+            s3_client = boto3.client("s3")
+            s3_client.upload_file(img_temploc, S3_BUCKET, img_filename)
+
+            #make s3 image url public
+            s3_resource = boto3.resource("s3")
+            object_acl = s3_resource.ObjectAcl(S3_BUCKET, img_filename)
+            object_acl.put(ACL="public-read")
+
+            #Remove image from server
+            os.remove(img_temploc)
+        except Exception as e:
+            print(f"Error uploading image: {e}")
+    
+
+
+
 class User(db.Model):
     """
     User model

@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest, Role, Message
+from db import User, Pets, PetSittingRequest, Role, Message, Asset
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -618,6 +618,25 @@ def get_user_messages(session_token):
     messages = Message.query.filter_by(recipient_id=user.id).all()
     serialized_messages = [m.serialize() for m in messages]
     return success_response({"messages": serialized_messages})
+
+#Images endpoints
+@app.route("/upload/", methods=["POST"])
+def upload():
+    """
+    Endpoint for uploading an image to AWS given its base64 form,
+    then returning the URL of that image
+    """
+    body = json.loads(request.data)
+    image_data = body.get("image_data")
+    if image_data is None:
+        return failure_response("No base64 URL")
+    
+    #Create new asset object
+    asset = Asset(image_data=image_data)
+    db.session.add(asset)
+    db.session.commit()
+
+    return success_response(asset.serialize(), 201)
 
 #Openai integration
 def get_ai_help(user_id, pet_id, request_id, your_query_here):
