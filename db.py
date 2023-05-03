@@ -116,9 +116,6 @@ class Asset(db.Model):
             os.remove(img_temploc)
         except Exception as e:
             print(f"Error uploading image: {e}")
-    
-
-
 
 class User(db.Model):
     """
@@ -133,6 +130,10 @@ class User(db.Model):
     phone = db.Column(db.String, nullable=True)
     password_digest = db.Column(db.String)
     gender = db.Column(db.String, nullable=True)
+    age = db.Column(db.String, nullable=True)
+    college_student = db.Column(db.Boolean, nullable=True, default=True)
+    curr_location = db.Column(db.String, nullable=True)
+    pet_owner_boolean = db.Column(db.Boolean, nullable=True, default=True)
 
     # Google OAuth information
     access_token = db.Column(db.String)
@@ -144,12 +145,18 @@ class User(db.Model):
     update_token = db.Column(db.String, nullable=False, unique=True)
 
     # Relationships
-    roles = db.relationship('Role', secondary='user_roles', backref=db.backref('users_roles', lazy=True))
     pets = db.relationship('Pets', backref='owner', lazy=True)
-    pet_owner_requests = db.relationship('PetSittingRequest', backref='owner', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
+
+    pet_owner_sitting_requests = db.relationship('PetSittingRequest', backref='owner_sitter', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
+
+    pet_owner_adoption_requests = db.relationship('PetAdoptionRequest', backref='owner_adopter', lazy=True, foreign_keys='PetAdoptionRequest.pet_owner_id')
+    pet_adopter_requests = db.relationship('PetAdoptionRequest', backref='adopter', lazy=True, foreign_keys='PetAdoptionRequest.pet_adopter_id')
+
     sent_messages_from_user = db.relationship("Message", backref="sender_user", lazy=True, foreign_keys="Message.sender_id")
     received_messages_for_user = db.relationship("Message", backref="recipient_user", lazy=True, foreign_keys="Message.recipient_id")
+
+
 
     def __init__(self, **kwargs):
         """
@@ -164,6 +171,10 @@ class User(db.Model):
         self.access_token = kwargs.get("access_token")
         self.refresh_token = kwargs.get("refresh_token")
         self.gender = kwargs.get("gender", None)
+        self.age = kwargs.get("age", None)
+        self.college_student = kwargs.get("college_student", True)
+        self.curr_location = kwargs.get("curr_location", None)
+        self.pet_owner_boolean = kwargs.get("pet_owner_boolean", True)
         self.renew_session()
 
     def serialize(self):
@@ -176,13 +187,18 @@ class User(db.Model):
             "username": self.username,
             "phone": self.phone,
             "gender": self.gender,
+            "age": self.age,
+            "college_student": self.college_student,
+            "curr_location": self.curr_location,
+            "pet_owner_boolean": self.pet_owner_boolean,
             "session_token": self.session_token,
             "update_token": self.update_token,
             "session_expiration": str(self.session_expiration),
-            "pets": [p.simple_serialize() for p in self.pets],
-            "roles": [r.serialize() for r in self.roles],
-            "pet_owner_requests": [r.serialize() for r in self.pet_owner_requests if r.pet_owner_id == self.id],
+            "pets_as_owner": [p.simple_serialize() for p in self.pets],
+            "pet_owner_sitting_requests": [r.serialize() for r in self.pet_owner_sitting_requests if r.pet_owner_id == self.id],
             "pet_sitter_requests": [r.serialize() for r in self.pet_sitter_requests if r.pet_sitter_id == self.id],
+            "pet_owner_adoption_requests": [r.serialize() for r in self.pet_owner_adoption_requests if r.pet_owner_id == self.id],
+            "pet_adopter_requests": [r.serialize() for r in self.pet_adopter_requests if r.pet_adopter_id == self.id],
             "sent_messages": [m.serialize() for m in self.sent_messages],
             "received_messages": [m.serialize() for m in self.received_messages]
         }
@@ -197,6 +213,10 @@ class User(db.Model):
             "username": self.username,
             "gender": self.gender,
             "phone": self.phone,
+            "age": self.age,
+            "college_student": self.college_student,
+            "curr_location": self.curr_location,
+            "pet_owner_boolean": self.pet_owner_boolean,
             "session_token": self.session_token,
             "update_token": self.update_token,
             "session_expiration": str(self.session_expiration)
@@ -256,11 +276,10 @@ class Pets(db.Model):
     __tablename__ = 'pets'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String, nullable=False)
-    age = db.Column(db.Integer, nullable=False)
-    species = db.Column(db.String, nullable=False)
+    gender = db.Column(db.String, nullable=False)
+    age = db.Column(db.String, nullable=False)
+    category = db.Column(db.String, nullable=False)
     breed = db.Column(db.String, nullable=False)
-    color = db.Column(db.String, nullable=False)
-    medical_conditions = db.Column(db.String, nullable=False)
 
     #Define relationship to user
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -271,10 +290,11 @@ class Pets(db.Model):
         """
         self.name = kwargs.get('name')
         self.age = kwargs.get('age')
-        self.species = kwargs.get('species')
         self.breed = kwargs.get('breed')
-        self.color = kwargs.get('color')
-        self.medical_conditions = kwargs.get('medical_conditions')
+        self.gender = kwargs.get('gender')
+        self.category = kwargs.get('category')
+        self.user_id = kwargs.get('user_id')
+
 
     def serialize(self):
         """
@@ -284,12 +304,11 @@ class Pets(db.Model):
         return {
             "id": self.id,
             "name": self.name,
+            "gender": self.gender,
             "age": self.age,
-            "species": self.species,
             "breed": self.breed,
-            "color": self.color,
-            "medical_conditions": self.medical_conditions,
-            "user_id": self.user_id
+            "category": self.category,
+            "owner_id": self.user_id
         }
     
     def simple_serialize(self):
@@ -300,60 +319,31 @@ class Pets(db.Model):
         return {
             "id": self.id,
             "name": self.name,
+            "gender": self.gender,
             "age": self.age,
-            "species": self.species,
+            "category": self.category,
             "breed": self.breed,
-            "color": self.color,
-            "medical_conditions": self.medical_conditions
         }
-
-class Role(db.Model):
-    """
-    Role model
-    """
-    __tablename__ = "roles"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String, nullable=False, unique=True)
-    description = db.Column(db.String, nullable=True)
-
-    #Relationship
-    users = db.relationship('User', secondary='user_roles', backref=db.backref('role_users', lazy=True))
-
-    def __init__(self, **kwargs):
-        """
-        Initializes a Role object
-        """
-        self.name = kwargs.get("name")
-        self.description = kwargs.get("description")
-
-    def serialize(self):
-        """
-        Serializes a Role object into a dictionary
-        """
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description
-        }
-    
-    def simple_serialize(self):
-        """
-        Serializes a Role object into a dictionary without additional details
-        """
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description
-        }
-
 
 class PetSittingRequest(db.Model):
     __tablename__ = "pet_sitting_request"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     # Request details
-    additional_info = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, nullable=False)
+    age = db.Column(db.String, nullable=False)
+    gender = db.Column(db.String, nullable=False)
+    category = db.Column(db.String, nullable=False)
+    breed = db.Column(db.String, nullable=False)
+    on_campus = db.Column(db.Boolean, nullable=False)
+    off_campus = db.Column(db.Boolean, nullable=False)
+    outside = db.Column(db.Boolean, nullable=False)
     start_time = db.Column(db.String, nullable=False)
     end_time = db.Column(db.String, nullable=False)
+    pet_description = db.Column(db.String, nullable=False)
+    additional_info = db.Column(db.String, nullable=False)
+    food_supplies = db.Column(db.Boolean, nullable=False)
+    sitter_pay = db.Column(db.Boolean, nullable=False)
+    sitter_housing = db.Column(db.Boolean, nullable=False)
 
 
     # Relationships
@@ -363,17 +353,26 @@ class PetSittingRequest(db.Model):
     pet_sitter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     pet_sitter = db.relationship("User", foreign_keys=pet_sitter_id)
 
-    pet_id = db.Column(db.Integer, db.ForeignKey("pets.id"), nullable=False)
-    pet = db.relationship("Pets")
-
     def __init__(self, **kwargs):
         """
         Initializes a PetSittingRequest object
         """
-        self.pet_id = kwargs.get("pet_id")
-        self.start_time = kwargs.get("start_time")
-        self.end_time = kwargs.get("end_time")
-        self.additional_info = kwargs.get("additional_info")
+        self.pet_id = kwargs.get('pet_id')
+        self.name = kwargs.get('name')
+        self.age = kwargs.get('age')
+        self.gender = kwargs['gender']
+        self.category = kwargs.get('category')
+        self.breed = kwargs.get('breed')
+        self.on_campus = kwargs.get('on_campus')
+        self.off_campus = kwargs.get('off_campus')
+        self.outside = kwargs.get('outside')
+        self.start_time = kwargs.get('start_time')
+        self.end_time = kwargs.get('end_time')
+        self.pet_description = kwargs.get('pet_description')
+        self.additional_info = kwargs.get('additional_info')
+        self.food_supplies = kwargs.get('food_supplies')
+        self.sitter_pay = kwargs.get('sitter_pay')
+        self.sitter_housing = kwargs.get('sitter_housing')
 
     def serialize(self):
         """
@@ -383,10 +382,21 @@ class PetSittingRequest(db.Model):
             "id": self.id,
             "pet_owner_id": self.pet_owner_id,
             "pet_sitter_id": self.pet_sitter_id,
-            "pet_id": self.pet_id,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "category": self.category,
+            "breed": self.breed,
+            "on_campus": self.on_campus,
+            "off_campus": self.off_campus,
+            "outside": self.outside,
             "start_time": self.start_time,
             "end_time": self.end_time,
+            "pet_description": self.pet_description,
             "additional_info": self.additional_info,
+            "food_supplies": self.food_supplies,
+            "sitter_pay": self.sitter_pay,
+            "sitter_housing": self.sitter_housing
         }
     
     def simple_serialize(self):
@@ -395,11 +405,111 @@ class PetSittingRequest(db.Model):
         """
         return {
             "id": self.id,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "category": self.category,
+            "breed": self.breed,
+            "on_campus": self.on_campus,
+            "off_campus": self.off_campus,
+            "outside": self.outside,
             "start_time": self.start_time,
             "end_time": self.end_time,
-            "additional_info": self.additional_info
+            "pet_description": self.pet_description,
+            "additional_info": self.additional_info,
+            "food_supplies": self.food_supplies,
+            "sitter_pay": self.sitter_pay,
+            "sitter_housing": self.sitter_housing
         }
+    
+class PetAdoptionRequest(db.Model):
+    __tablename__ = "pet_adoption_request"
 
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    # Request details
+    name = db.Column(db.String, nullable=False)
+    age = db.Column(db.String, nullable=False)
+    gender = db.Column(db.String, nullable=False)
+    category = db.Column(db.String, nullable=False)
+    breed = db.Column(db.String, nullable=False)
+    on_campus = db.Column(db.Boolean, nullable=False)
+    off_campus = db.Column(db.Boolean, nullable=False)
+    outside = db.Column(db.Boolean, nullable=False)
+    end_time = db.Column(db.String, nullable=False)
+    pet_description = db.Column(db.String, nullable=False)
+    additional_info = db.Column(db.String, nullable=False)
+    food_supplies = db.Column(db.Boolean, nullable=False)
+    adopter_reward = db.Column(db.Boolean, nullable=False)
+
+    # Relationships
+    pet_owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    pet_owner = db.relationship("User", foreign_keys=pet_owner_id)
+
+    pet_adopter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    pet_adopter = db.relationship("User", foreign_keys=pet_adopter_id)
+
+    def __init__(self, **kwargs):
+        """
+        Initializes a PetAdopterRequest object
+        """
+        self.pet_id = kwargs.get('pet_id')
+        self.name = kwargs.get('name')
+        self.age = kwargs.get('age')
+        self.gender = kwargs['gender']
+        self.category = kwargs.get('category')
+        self.breed = kwargs.get('breed')
+        self.on_campus = kwargs.get('on_campus')
+        self.off_campus = kwargs.get('off_campus')
+        self.outside = kwargs.get('outside')
+        self.end_time = kwargs.get('end_time')
+        self.pet_description = kwargs.get('pet_description')
+        self.additional_info = kwargs.get('additional_info')
+        self.food_supplies = kwargs.get('food_supplies')
+        self.adopter_reward = kwargs.get('adopter_reward')
+    
+    def serialize(self):
+        """
+        Serializes a PetAdoptionRequest object into a dictionary
+        """
+        return {
+            "id": self.id,
+            "pet_owner_id": self.pet_owner_id,
+            "pet_adopter_id": self.pet_adopter_id,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "category": self.category,
+            "breed": self.breed,
+            "on_campus": self.on_campus,
+            "off_campus": self.off_campus,
+            "outside": self.outside,
+            "end_time": self.end_time,
+            "pet_description": self.pet_description,
+            "additional_info": self.additional_info,
+            "food_supplies": self.food_supplies,
+            "adopter_reward": self.adopter_reward
+        }
+    
+    def simple_serialize(self):
+        """
+        Serializes a PetAdoptionRequest object into a dictionary without pet and user details
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "category": self.category,
+            "breed": self.breed,
+            "on_campus": self.on_campus,
+            "off_campus": self.off_campus,
+            "outside": self.outside,
+            "end_time": self.end_time,
+            "pet_description": self.pet_description,
+            "additional_info": self.additional_info,
+            "food_supplies": self.food_supplies,
+            "adopter_reward": self.adopter_reward
+        }
 
 class Message(db.Model):
     __tablename__ = "message"
@@ -445,4 +555,3 @@ class Message(db.Model):
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
         }
-

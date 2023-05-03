@@ -9,7 +9,7 @@ import users_dao
 import datetime
 import os
 from open_ai_helper import generate_ai_response
-from db import User, Pets, PetSittingRequest, Role, Message, Asset
+from db import User, Pets, PetSittingRequest, Message, Asset, PetAdoptionRequest
 
 db_filename = "auth.db"
 app = Flask(__name__)
@@ -210,7 +210,7 @@ def google_login():
     )
 
 #User endpoints
-@app.route("/user/", methods=["GET"])
+@app.route("/user", methods=["GET"])
 def get_user():
     """
     Endpoint for getting a user's information
@@ -235,11 +235,16 @@ def get_all_users():
     users = [user.serialize() for user in users_dao.get_all_users()]
     return success_response({"users": users})
 
-@app.route("/user/<string:session_token>/", methods=["PUT"])
-def update_user(session_token):
+@app.route("/user", methods=["PUT"])
+def update_user():
     """
     Endpoint for updating a user
     """
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
@@ -249,15 +254,29 @@ def update_user(session_token):
         user.phone = data["phone"]
     if "gender" in data:
         user.gender = data["gender"]
+    if "age" in data:
+        user.age = data["age"]
+    if "curr_location" in data:
+        user.curr_location = data["curr_location"]
+    if "college_student" in data:
+        user.college_student = data["college_student"]
+    if "pet_owner_boolean" in data:
+        user.pet_owner_boolean = data["pet_owner_boolean"]
 
     db.session.commit()
     return success_response(user.serialize())
 
-@app.route("/user/<string:session_token>/", methods=["DELETE"])
-def delete_user(session_token):
+@app.route("/user", methods=["DELETE"])
+def delete_user():
     """
     Endpoint for deleting a user
     """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
@@ -282,25 +301,32 @@ def get_pet_by_id(pet_id):
         return failure_response("User not found!")
     return success_response(pet.simple_serialize())
 
-@app.route("/user/pet/<string:session_token>/", methods = ["POST"])
-def create_pet(session_token):
+@app.route("/user/pet/", methods = ["POST"])
+def create_pet():
     body = json.loads(request.data)
     name = body.get("name")
     age = body.get("age")
-    species = body.get('species')
+    gender = body.get('gender')
     breed = body.get('breed')
-    color = body.get('color')
-    medical_conditions = body.get('medical_conditions')
+    category = body.get('category')
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
-    if name is None or age is None or species is None or breed is None or color is None or medical_conditions is None:
-        return failure_response("Missing information!")
-    pet = Pets(name = name, age = age, species = species, breed = breed, color = color, medical_conditions = medical_conditions, user_id = user.id)
+    if name is None or age is None or gender is None or breed is None or category is None:
+        return failure_response("Missing necessary information!")
+    
+    pet = Pets(name = name, age = age, gender = gender, breed=breed, category=category)
+
     user.pets.append(pet)
     db.session.add(pet)
     db.session.commit()
-    return success_response(pet.simple_serialize(), 201)
+    return success_response(pet.serialize(), 201)
 
 @app.route("/pet/<int:pet_id>", methods = ["DELETE"])
 def delete_pet(pet_id):
@@ -312,24 +338,35 @@ def delete_pet(pet_id):
         return failure_response("Pet not found!")
     db.session.delete(pet)
     db.session.commit()
-    return success_response(pet.simple_serialize())
+    return success_response(pet.serialize())
 
-@app.route("/user/<string:session_token>/pets/", methods = ["GET"])
-def get_user_pets(session_token):
+@app.route("/user/pets/", methods = ["GET"])
+def get_user_pets():
     """
     Endpoint for getting all pets of a user
     """
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
-    pets = [pet.simple_serialize() for pet in user.pets]
+    pets = [pet.serialize() for pet in user.pets]
     return success_response({"pets": pets})
 
-@app.route("/user/<string:session_token>/pet/<int:pet_id>/", methods = ["DELETE"])
-def remove_pet_from_user(session_token, pet_id):
+@app.route("/user/pet/<int:pet_id>/", methods = ["DELETE"])
+def remove_pet_from_user(pet_id):
     """
     Endpoint for removing a pet from a user
     """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
@@ -353,45 +390,66 @@ def update_pet(pet_id):
         pet.name = data["name"]
     if "age" in data:
         pet.age = data["age"]
-    if "species" in data:
-        pet.species = data["species"]
+    if "gender" in data:
+        pet.gender = data["gender"]
     if "breed" in data:
         pet.breed = data["breed"]
-    if "color" in data:
-        pet.color = data["color"]
-    if "medical_conditions" in data:
-        pet.medical_conditions = data["medical_conditions"]
+    if "category" in data:
+        pet.category = data["category"]
     db.session.commit()
     return success_response(pet.simple_serialize())
 
 #Pet Sitting Request endpoints
-@app.route("/user/<string:session_token>/pet/<string:pet_id>/pet_sitting_request/", methods = ["POST"])
-def create_pet_sitting_request(session_token, pet_id):
+@app.route("/user/pet_sitting_request/", methods = ["POST"])
+def create_pet_sitting_request():
     """
     Endpoint for creating a pet sitting request
     """
     body = json.loads(request.data)
-    start_time = body.get('start_time')
+    name = body.get("name")
+    age = body.get("age")
+    gender = body.get("gender")
+    breed = body.get("breed")
+    category = body.get("category")
+    on_campus = body.get("on_campus")
+    off_campus = body.get("off_campus")
+    outside = body.get("outside")
+    start_time = body.get("start_time")
     end_time = body.get("end_time")
     additional_info = body.get("additional_info")
+    pet_description = body.get("pet_description")
+    food_supplies = body.get("food_supplies")
+    sitter_pay = body.get("sitter_pay")
+    sitter_housing = body.get("sitter_housing")
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
-    pet = Pets.query.filter_by(id = pet_id).first()
 
     if user is None:
         return failure_response("User not found!")
-    if pet is None:
-        return failure_response("Pet not found!")
-    pet_sitting_request = PetSittingRequest(pet_id = pet.id, pet_owner_id = user.id, start_time = start_time, end_time = end_time, additional_info = additional_info)
-    user.pet_owner_requests.append(pet_sitting_request)
+    pet_sitting_request = PetSittingRequest(name=name,age=age,gender=gender,breed=breed,category=category,on_campus=on_campus, 
+                                            off_campus=off_campus, outside=outside, start_time=start_time, end_time=end_time, 
+                                            additional_info=additional_info, pet_description=pet_description, food_supplies=food_supplies, 
+                                            sitter_pay=sitter_pay, sitter_housing=sitter_housing)
+    user.pet_owner_sitting_requests.append(pet_sitting_request)
     db.session.add(pet_sitting_request)
     db.session.commit()
     return success_response(pet_sitting_request.serialize(), 201)
 
-@app.route("/user/<string:session_token>/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
-def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
+@app.route("/user/pet_sitting_request/<int:pet_sitting_request_id>/", methods = ["POST"])
+def add_user_as_pet_sitter(pet_sitting_request_id):
     """
     Endpoint for adding a pet sitter to a pet sitting request
     """
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     pet_sitting_request = PetSittingRequest.query.filter_by(id = pet_sitting_request_id).first()
     if user is None:
@@ -399,6 +457,7 @@ def add_user_as_pet_sitter(session_token, pet_sitting_request_id):
     if pet_sitting_request is None:
         return failure_response("Pet sitting request not found!")
     pet_sitting_request.pet_sitter_id = user.id
+    user.pet_owner_sitting_requests.append(pet_sitting_request)
     db.session.commit()
     return success_response(pet_sitting_request.serialize(), 201)
 
@@ -423,12 +482,36 @@ def update_pet_sitting_request(pet_sitting_request_id):
     if pet_sitting_request is None:
         return failure_response("Pet sitting request not found!")
     data = request.get_json()
-    if "start_date" in data:
-        pet_sitting_request.start_date = data["start_date"]
-    if "end_date" in data:
-        pet_sitting_request.end_date = data["end_date"]
+    if "name" in data:
+        pet_sitting_request.name = data["name"]
+    if "age" in data:
+        pet_sitting_request.age = data["age"]
+    if "gender" in data:
+        pet_sitting_request.gender = data["gender"]
+    if "category" in data:
+        pet_sitting_request.category = data["category"]
+    if "breed" in data:
+        pet_sitting_request.breed = data["breed"]
+    if "on_campus" in data:
+        pet_sitting_request.on_campus = data["on_campus"]
+    if "off_campus" in data:
+        pet_sitting_request.off_campus = data["off_campus"]
+    if "outside" in data:
+        pet_sitting_request.outside = data["outside"]
+    if "start_time" in data:
+        pet_sitting_request.start_time = data["start_time"]
+    if "end_time" in data:
+        pet_sitting_request.end_time = data["end_time"]
     if "additional_info" in data:
         pet_sitting_request.additional_info = data["additional_info"]
+    if "pet_description" in data:
+        pet_sitting_request.pet_description = data["pet_description"]
+    if "food_supplies" in data:
+        pet_sitting_request.food_supplies = data["food_supplies"]
+    if "sitter_pay" in data:
+        pet_sitting_request.sitter_pay = data["sitter_pay"]
+    if "sitter_housing" in data:
+        pet_sitting_request.sitter_housing = data["sitter_housing"]
     db.session.commit()
     return success_response(pet_sitting_request.serialize(), 200)
 
@@ -450,114 +533,176 @@ def get_pet_sitting_request_by_id(pet_sitting_request_id):
         return failure_response("Pet sitting request not found!")
     return success_response(pet_sitting_request.serialize())
 
-@app.route("/user/<string:session_token>/pet_sitting_requests/", methods=["GET"])
-def get_user_pet_sitting_requests(session_token):
+@app.route("/user/pet_sitting_requests/", methods=["GET"])
+def get_user_pet_sitting_requests():
     """
     Endpoint for getting all pet sitting requests of a user
     """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
-    pet_owner_requests = [r.serialize() for r in user.pet_owner_requests]
+    pet_owner_sitting_requests = [r.serialize() for r in user.pet_owner_requests]
     pet_sitter_requests = [r.serialize() for r in user.pet_sitter_requests]
     return success_response({
-        "pet_owner_requests": pet_owner_requests,
+        "pet_owner_sitting_requests": pet_owner_sitting_requests,
         "pet_sitter_requests": pet_sitter_requests
     })
 
-#Role Request endpoints
-@app.route("/roles/", methods=["GET"])
-def get_all_roles():
+#Pet Adoption Endpoints
+@app.route("/user/pet_adoption_request/", methods = ["POST"])
+def create_pet_adoption_request():
     """
-    Endpoint for getting all roles
-    """
-    roles = Role.query.all()
-    serialized_roles = [r.serialize() for r in roles]
-    return success_response({"roles": serialized_roles})
-
-@app.route("/role/<int:role_id>/", methods=["GET"])
-def get_role_by_id(role_id):
-    """
-    Endpoint for getting a role
-    """
-    role = Role.query.filter_by(id=role_id).first()
-    if role is None:
-        return failure_response("Role not found!")
-    return success_response(role.serialize())
-
-@app.route("/role/<int:role_id>/", methods=["DELETE"])
-def delete_role(role_id):
-    """
-    Endpoint for deleting a role
-    """
-    role = Role.query.filter_by(id=role_id).first()
-    if role is None:
-        return failure_response("Role not found!")
-    db.session.delete(role)
-    db.session.commit()
-    return success_response(role.serialize())
-
-@app.route("/role/", methods=["POST"])
-def create_roles():
-    """
-    Ednpoint for creating roles
-    """
-    roles = [
-        {"name": "pet_owner", "description": "Pet owner role"},
-        {"name": "pet_sitter", "description": "Pet sitter role"}
-    ]
-    for role in roles:
-        existing_role = Role.query.filter_by(name=role["name"]).first()
-        if not existing_role:
-            new_role = Role(name=role["name"], description=role["description"])
-            db.session.add(new_role)
-    db.session.commit()
-    return success_response("Roles created successfully!", 201)
-
-@app.route("/role/<string:session_token>/", methods=["POST"])
-def add_role_to_user(session_token):
-    """
-    Endpoint for adding a role to a user
+    Endpoint for creating a pet sitting request
     """
     body = json.loads(request.data)
-    role_id = body.get("role_id")
-    user = users_dao.get_user_by_session_token(session_token)
-    if user is None:
-        return failure_response("User not found!")
-    role = Role.query.filter_by(id=role_id).first()
-    if role is None:
-        return failure_response("Role not found!")
-    user.roles.append(role)
-    db.session.commit()
-    return success_response(user.serialize(), 201)
+    name = body.get("name")
+    age = body.get("age")
+    gender = body.get("gender")
+    breed = body.get("breed")
+    category = body.get("category")
+    on_campus = body.get("on_campus")
+    off_campus = body.get("off_campus")
+    outside = body.get("outside")
+    end_time = body.get("end_time")
+    additional_info = body.get("additional_info")
+    pet_description = body.get("pet_description")
+    food_supplies = body.get("food_supplies")
+    adopter_reward = body.get("adopter_reward")
 
-@app.route("/role/<string:session_token>/", methods=["DELETE"])
-def remove_role_from_user(session_token):
-    """
-    Endpoint for removing a role from a user
-    """
-    body = json.loads(request.data)
-    role_id = body.get("role_id")
-    user = users_dao.get_user_by_session_token(session_token)
-    if user is None:
-        return failure_response("User not found!")
-    role = Role.query.filter_by(id=role_id).first()
-    if role is None:
-        return failure_response("Role not found!")
-    user.roles.remove(role)
-    db.session.commit()
-    return success_response(user.serialize())
+    success, session_token = extract_token(request)
 
-@app.route("/role/<string:session_token>/", methods=["GET"])
-def get_user_roles(session_token):
+    if not success:
+        return session_token
+    
+    user = users_dao.get_user_by_session_token(session_token)
+
+    if user is None:
+        return failure_response("User not found!")
+    pet_adoption_request = PetAdoptionRequest(name=name,age=age,gender=gender,breed=breed,category=category,on_campus=on_campus, 
+                                            off_campus=off_campus, outside=outside, end_time=end_time, 
+                                            additional_info=additional_info, pet_description=pet_description, food_supplies=food_supplies, 
+                                            adopter_reward=adopter_reward)
+    user.pet_owner_adoption_requests.append(pet_adoption_request)
+    db.session.add(pet_adoption_request)
+    db.session.commit()
+    return success_response(pet_adoption_request.serialize(), 201)
+
+@app.route("/user/pet_adoption_request/<int:pet_adoption_request_id>/", methods = ["POST"])
+def add_user_as_pet_adopter(pet_adoption_request_id):
     """
-    Endpoint for getting all roles of a user
+    Endpoint for adding a pet sitter to a pet sitting request
     """
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
+    user = users_dao.get_user_by_session_token(session_token)
+    pet_adoption_request = PetAdoptionRequest.query.filter_by(id = pet_adoption_request_id).first()
+    if user is None:
+        return failure_response("User not found!")
+    if pet_adoption_request is None:
+        return failure_response("Pet sitting request not found!")
+    
+    pet_adoption_request.pet_adopter_id = user.id
+    user.pet_adopter_requests.append(pet_adoption_request)
+    db.session.commit()
+    return success_response(pet_adoption_request.serialize(), 201)
+
+@app.route("/pet_adoption_request/<int:pet_adoption_request_id>/", methods = ["DELETE"])
+def delete_pet_adoption_request(pet_adoption_request_id):
+    """
+    Endpoint for deleting a pet sitting request
+    """
+    pet_adoption_request = PetAdoptionRequest.query.filter_by(id = pet_adoption_request_id).first()
+    if pet_adoption_request is None:
+        return failure_response("Pet Adoption request not found!")
+    db.session.delete(pet_adoption_request)
+    db.session.commit()
+    return success_response(pet_adoption_request.serialize(), 202)
+
+@app.route("/pet_adoption_request/<int:pet_adoption_request_id>/", methods = ["PUT"])
+def update_pet_adoption_request(pet_adoption_request_id):
+    """
+    Endpoint for updating a pet sitting request
+    """
+    pet_adoption_request = PetAdoptionRequest.query.filter_by(id = pet_adoption_request_id).first()
+    if pet_adoption_request is None:
+        return failure_response("Pet Adoption request not found!")
+    data = request.get_json()
+    if "name" in data:
+        pet_adoption_request.name = data["name"]
+    if "age" in data:
+        pet_adoption_request.age = data["age"]
+    if "gender" in data:
+        pet_adoption_request.gender = data["gender"]
+    if "category" in data:
+        pet_adoption_request.category = data["category"]
+    if "breed" in data:
+        pet_adoption_request.breed = data["breed"]
+    if "on_campus" in data:
+        pet_adoption_request.on_campus = data["on_campus"]
+    if "off_campus" in data:
+        pet_adoption_request.off_campus = data["off_campus"]
+    if "outside" in data:
+        pet_adoption_request.outside = data["outside"]
+    if "end_time" in data:
+        pet_adoption_request.end_time = data["end_time"]
+    if "additional_info" in data:
+        pet_adoption_request.additional_info = data["additional_info"]
+    if "pet_description" in data:
+        pet_adoption_request.pet_description = data["pet_description"]
+    if "food_supplies" in data:
+        pet_adoption_request.food_supplies = data["food_supplies"]
+    if "adopter_reward" in data:
+        pet_adoption_request.adopter_reward = data["adopter_reward"]
+    db.session.commit()
+    return success_response(pet_adoption_request.serialize(), 200)
+
+@app.route("/pet_adoption_request")
+def get_all_pet_adoption_requests():
+    """
+    Endpoint for getting all pet sitting requests
+    """
+    pet_adoption_request = [pet_adoption_request.serialize() for pet_adoption_request in PetAdoptionRequest.query.all()]
+    return success_response({"pet_adoption_requests": pet_adoption_request})
+
+@app.route("/pet_adoption_request/<int:pet_adoption_request_id>/", methods = ["GET"])
+def get_pet_adoption_request_by_id(pet_adoption_request_id):
+    """
+    Endpoint for getting a pet sitting request
+    """
+    pet_adoption_request = PetAdoptionRequest.query.filter_by(id = pet_adoption_request_id).first()
+    if pet_adoption_request is None:
+        return failure_response("Pet sitting request not found!")
+    return success_response(pet_adoption_request.serialize())
+
+@app.route("/user/pet_adoption_request/", methods=["GET"])
+def get_user_pet_adoption_request():
+    """
+    Endpoint for getting all pet sitting requests of a user
+    """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
-    roles = [r.serialize() for r in user.roles]
-    return success_response({"roles": roles})
+    pet_owner_requests = [r.serialize() for r in user.pet_owner_adoption_requests]
+    pet_adopter_requests = [r.serialize() for r in user.pet_adopter_requests]
+    return success_response({
+        "pet_owner_adoption_requests": pet_owner_requests,
+        "pet_adoption_request": pet_adopter_requests
+    })
 
 #Message endpoints
 @app.route("/messages/", methods=["GET"])
@@ -591,27 +736,38 @@ def delete_message(message_id):
     db.session.commit()
     return success_response(message.serialize())
 
-@app.route("/message/<string:sender_email>/<string:recipient_email>/", methods=["POST"])
-def create_message(sender_email, recipient_email):
+@app.route("/message/<string:sender_email>", methods=["POST"])
+def create_message(sender_email):
     """
     Endpoint for creating a message
     """
     body = json.loads(request.data)
     content = body.get("content")
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+
+    recipient = users_dao.get_user_by_session_token(session_token)
     sender = users_dao.get_user_by_email(sender_email)
-    recipient = users_dao.get_user_by_email(recipient_email)
     if sender is None or recipient is None:
-        return failure_response("Sender or recipient not found!")
+        return failure_response("Recipient not found!")
     new_message = Message(content=content, sender_id=sender.id, recipient_id=recipient.id, timestamp = datetime.datetime.utcnow())
     db.session.add(new_message)
     db.session.commit()
     return success_response(new_message.serialize(), 201)
 
-@app.route("/message/<string:session_token>/", methods=["GET"])
-def get_user_messages(session_token):
+@app.route("/message/", methods=["GET"])
+def get_user_messages():
     """
     Endpoint for getting all messages of a user
     """
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
