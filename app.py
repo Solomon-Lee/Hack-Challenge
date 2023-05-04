@@ -893,7 +893,7 @@ def delete_user_asset():
     db.session.commit()
     return success_response(asset.serialize())
 
-#Pet Asset endpoints
+#Pet Sitting Asset endpoints
 @app.route("/upload/pet_sitting/<int:pet_sitting_id>", methods=["POST"])
 def upload_asset_to_pet_sitting(pet_sitting_id):
     """
@@ -908,12 +908,44 @@ def upload_asset_to_pet_sitting(pet_sitting_id):
     if pet_sitting is None:
         return failure_response("Pet sitting not found!")
     
-    asset = Asset(image_data=image_data, pet_setting_id = pet_sitting.id)
+    asset = Asset(image_data=image_data, pet_sitting_id = pet_sitting.id)
     db.session.add(asset)
     db.session.commit()
 
     return success_response(asset.serialize(), 201)
 
+@app.route("/upload/pet_sitting/<int:pet_sitting_id>", methods=["GET"])
+def get_all_pet_sitting_asset(pet_sitting_id):
+    """
+    Endpoint for getting all assets in pet_sitting request
+    """
+    pet_sitting = PetSittingRequest.query.filter_by(id=pet_sitting_id).first()
+    if pet_sitting is None:
+        return failure_response("Pet sitting not found!")
+    assets = Asset.query.filter_by(pet_sitting_id=pet_sitting.id).all()
+    serialized_assets = [a.serialize() for a in assets]
+    return success_response({"assets": serialized_assets})
+
+@app.route("/upload/pet_sitting/<int:pet_sitting_id>/<int:asset_id>", methods=["DELETE"])
+def delete_pet_sitting_asset(pet_sitting_id, asset_id):
+    """
+    Endpoint for deleting an asset
+    """
+    pet_sitting = PetSittingRequest.query.filter_by(id=pet_sitting_id).first()
+    if pet_sitting is None:
+        return failure_response("Pet sitting not found!")
+    asset = Asset.query.filter_by(id=asset_id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    asset = Asset.query.filter_by(id=asset_id, pet_sitting_id=pet_sitting_id).first()
+    if asset is None:
+        return failure_response("Asset not found or not associated with the pet sitting request!")
+    
+    db.session.delete(asset)
+    db.session.commit()
+    return success_response(asset.serialize())
+
+#Pet Adoption Asset endpoints
 @app.route("/upload/pet_adoption/<int:pet_adoption_id>", methods=["POST"])
 def upload_asset_to_pet_adoption(pet_adoption_id):
     """
@@ -933,6 +965,39 @@ def upload_asset_to_pet_adoption(pet_adoption_id):
     db.session.commit()
 
     return success_response(asset.serialize(), 201)
+
+@app.route("/upload/pet_adoption/<int:pet_adoption_id>", methods=["GET"])
+def get_pet_adoption_asset(pet_adoption_id):
+    """
+    Endpoint for getting an asset
+    """
+    pet_adoption = PetAdoptionRequest.query.filter_by(id=pet_adoption_id).first()
+    if pet_adoption is None:
+        return failure_response("Pet adoption not found!")
+    asset = Asset.query.filter_by(pet_adoption_id=pet_adoption.id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    return success_response(asset.serialize())
+
+@app.route("/upload/pet_adoption/<int:pet_adoption_id>/<int:asset_id>", methods=["DELETE"])
+def delete_pet_adoption_asset(pet_adoption_id, asset_id):
+    """
+    Endpoint for deleting an asset
+    """
+    pet_adoption = PetAdoptionRequest.query.filter_by(id=pet_adoption_id).first()
+    if pet_adoption is None:
+        return failure_response("Pet adoption not found!")
+    asset = Asset.query.filter_by(id=asset_id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    
+    asset = Asset.query.filter_by(id=asset_id, pet_adoption_id=pet_adoption.id).first()
+    if asset is None:
+        return failure_response("Asset not found or not associated with the pet sitting request!")
+    
+    db.session.delete(asset)
+    db.session.commit()
+    return success_response(asset.serialize())
 
 
 #Openai integration
