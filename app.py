@@ -794,6 +794,147 @@ def upload():
 
     return success_response(asset.serialize(), 201)
 
+@app.route("/upload/<int:asset_id>/", methods=["GET"])
+def get_asset(asset_id):
+    """
+    Endpoint for getting an asset
+    """
+    asset = Asset.query.filter_by(id=asset_id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    return success_response(asset.serialize())
+
+@app.route("/upload/", methods=["GET"])
+def get_all_assets():
+    """
+    Endpoint for getting all assets
+    """
+    assets = Asset.query.all()
+    serialized_assets = [a.serialize() for a in assets]
+    return success_response({"assets": serialized_assets})
+
+@app.route("/upload/<int:asset_id>/", methods=["DELETE"])
+def delete_asset(asset_id):
+    """
+    Endpoint for deleting an asset
+    """
+    asset = Asset.query.filter_by(id=asset_id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    db.session.delete(asset)
+    db.session.commit()
+    return success_response(asset.serialize())
+
+#User Asset endpoints
+@app.route("/upload/user/", methods=["POST"])
+def upload_asset_to_user():
+    """
+    Endpoint for uploading an asset to a user
+    """
+    body = json.loads(request.data)
+    image_data = body.get("image_data")
+    if image_data is None:
+        return failure_response("No base64 URL")
+    
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
+    user = users_dao.get_user_by_session_token(session_token)
+
+    if user is None:
+        return failure_response("User not found!")
+    
+    existing_asset = Asset.query.filter_by(user_id=user.id).first()
+    if existing_asset:
+        return failure_response("User already has an asset!")
+    
+    #Create new asset object
+    asset = Asset(image_data=image_data, user_id = user.id)
+    db.session.add(asset)
+    db.session.commit()
+
+    return success_response(asset.serialize(), 201)
+
+@app.route("/upload/user/", methods=["GET"])
+def get_user_asset():
+    """
+    Endpoint for getting an asset
+    """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
+    user = users_dao.get_user_by_session_token(session_token)
+    asset = Asset.query.filter_by(user_id=user.id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    return success_response(asset.serialize())
+
+@app.route("/upload/user/", methods=["DELETE"])
+def delete_user_asset():
+    """
+    Endpoint for deleting an asset
+    """
+
+    success, session_token = extract_token(request)
+
+    if not success:
+        return session_token
+    
+    user = users_dao.get_user_by_session_token(session_token)
+    asset = Asset.query.filter_by(user_id=user.id).first()
+    if asset is None:
+        return failure_response("Asset not found!")
+    db.session.delete(asset)
+    db.session.commit()
+    return success_response(asset.serialize())
+
+#Pet Asset endpoints
+@app.route("/upload/pet_sitting/<int:pet_sitting_id>", methods=["POST"])
+def upload_asset_to_pet_sitting(pet_sitting_id):
+    """
+    Endpoint for uploading an asset to a pet sitting
+    """
+    body = json.loads(request.data)
+    image_data = body.get("image_data")
+    if image_data is None:
+        return failure_response("No base64 URL")
+    
+    pet_sitting = PetSittingRequest.query.filter_by(id=pet_sitting_id).first()
+    if pet_sitting is None:
+        return failure_response("Pet sitting not found!")
+    
+    asset = Asset(image_data=image_data, pet_setting_id = pet_sitting.id)
+    db.session.add(asset)
+    db.session.commit()
+
+    return success_response(asset.serialize(), 201)
+
+@app.route("/upload/pet_adoption/<int:pet_adoption_id>", methods=["POST"])
+def upload_asset_to_pet_adoption(pet_adoption_id):
+    """
+    Endpoint for uploading an asset to a pet sitting
+    """
+    body = json.loads(request.data)
+    image_data = body.get("image_data")
+    if image_data is None:
+        return failure_response("No base64 URL")
+    
+    pet_adoption = PetAdoptionRequest.query.filter_by(id=pet_adoption_id).first()
+    if pet_adoption is None:
+        return failure_response("Pet Adoption not found!")
+    
+    asset = Asset(image_data=image_data, pet_adoption_id = pet_adoption.id)
+    db.session.add(asset)
+    db.session.commit()
+
+    return success_response(asset.serialize(), 201)
+
+
 #Openai integration
 def get_ai_help(user_id, pet_id, request_id, your_query_here):
     """

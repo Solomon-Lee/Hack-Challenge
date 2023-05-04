@@ -34,11 +34,19 @@ class Asset(db.Model):
     height = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False)
 
+    #Relationships
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    pet_sitting_id = db.Column(db.Integer, db.ForeignKey("pet_sitting_request.id"), nullable=True)
+    pet_adoption_id = db.Column(db.Integer, db.ForeignKey("pet_adoption_request.id"), nullable=True)
+
     def __init__(self, **kwargs):
         """
         Initializes an Asset object
         """
         self.create(kwargs.get("image_data"))
+        self.user_id = kwargs.get("user_id")
+        self.pet_sitting_id = kwargs.get("pet_sitting_id")
+        self.pet_adoption_id = kwargs.get("pet_adoption_id")
     
     def serialize(self):
         """
@@ -46,7 +54,11 @@ class Asset(db.Model):
         """
         return {
             "base_url": f"{self.base_url}/{self.salt}.{self.extension}",
-            "created_at": str(self.created_at)
+            "created_at": str(self.created_at),
+            "asset_id": self.id,
+            "user_id": self.user_id,
+            "pet_sitting_id": self.pet_sitting_id,
+            "pet_adoption_id": self.pet_adoption_id
         }
     
     def create(self, image_data):
@@ -151,7 +163,7 @@ class User(db.Model):
     sent_messages_from_user = db.relationship("Message", backref="sender_user", lazy=True, foreign_keys="Message.sender_id")
     received_messages_for_user = db.relationship("Message", backref="recipient_user", lazy=True, foreign_keys="Message.recipient_id")
 
-
+    asset = db.relationship("Asset", uselist=False, backref="user")
 
     def __init__(self, **kwargs):
         """
@@ -195,7 +207,8 @@ class User(db.Model):
             "pet_owner_adoption_requests": [r.serialize() for r in self.pet_owner_adoption_requests if r.pet_owner_id == self.id],
             "pet_adopter_requests": [r.serialize() for r in self.pet_adopter_requests if r.pet_adopter_id == self.id],
             "sent_messages": [m.serialize() for m in self.sent_messages],
-            "received_messages": [m.serialize() for m in self.received_messages]
+            "received_messages": [m.serialize() for m in self.received_messages],
+            "asset": self.asset.serialize() if self.asset else None
         }
 
     def simple_serialize(self):
@@ -340,13 +353,14 @@ class PetSittingRequest(db.Model):
     sitter_pay = db.Column(db.Boolean, nullable=False)
     sitter_housing = db.Column(db.Boolean, nullable=False)
 
-
     # Relationships
     pet_owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     pet_owner = db.relationship("User", foreign_keys=pet_owner_id)
 
     pet_sitter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     pet_sitter = db.relationship("User", foreign_keys=pet_sitter_id)
+
+    asset = db.relationship("Asset", backref="pet_sitting_request_asset", lazy=True)
 
     def __init__(self, **kwargs):
         """
@@ -368,6 +382,8 @@ class PetSittingRequest(db.Model):
         self.food_supplies = kwargs.get('food_supplies')
         self.sitter_pay = kwargs.get('sitter_pay')
         self.sitter_housing = kwargs.get('sitter_housing')
+        self.pet_owner_id = kwargs.get('pet_owner_id')
+        self.pet_sitter_id = kwargs.get('pet_sitter_id')
 
     def serialize(self):
         """
@@ -391,7 +407,8 @@ class PetSittingRequest(db.Model):
             "additional_info": self.additional_info,
             "food_supplies": self.food_supplies,
             "sitter_pay": self.sitter_pay,
-            "sitter_housing": self.sitter_housing
+            "sitter_housing": self.sitter_housing,
+            "assets": [asset.serialize() for asset in self.asset]
         }
     
     def simple_serialize(self):
@@ -443,6 +460,8 @@ class PetAdoptionRequest(db.Model):
     pet_adopter_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     pet_adopter = db.relationship("User", foreign_keys=pet_adopter_id)
 
+    asset = db.relationship("Asset", backref="pet_adoption_request_asset", lazy=True)
+
     def __init__(self, **kwargs):
         """
         Initializes a PetAdopterRequest object
@@ -482,7 +501,8 @@ class PetAdoptionRequest(db.Model):
             "pet_description": self.pet_description,
             "additional_info": self.additional_info,
             "food_supplies": self.food_supplies,
-            "adopter_reward": self.adopter_reward
+            "adopter_reward": self.adopter_reward,
+            "assets": [asset.serialize() for asset in self.asset]
         }
     
     def simple_serialize(self):
