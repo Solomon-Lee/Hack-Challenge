@@ -16,7 +16,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
+EXTENSIONS = ["jpg", "jpeg", "png", "gif", "heic"]
 BASE_DIR = os.getcwd()
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
@@ -32,7 +32,7 @@ class Asset(db.Model):
     extension = db.Column(db.String, nullable=True)
     width = db.Column(db.Integer, nullable=True)
     height = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
 
     #Relationships
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
@@ -108,8 +108,6 @@ class Asset(db.Model):
         """
         try:
             img_temploc = f"{BASE_DIR}/{img_filename}"
-            img.save(img_temploc)
-
             #upload image to S3
             s3_client = boto3.client("s3")
             s3_client.upload_file(img_temploc, S3_BUCKET_NAME, img_filename)

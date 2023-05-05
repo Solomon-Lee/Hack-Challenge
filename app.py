@@ -248,7 +248,6 @@ def update_user():
     if user is None:
         return failure_response("User not found!")
 
-    
     data = request.get_json()
     if "phone" in data:
         user.phone = data["phone"]
@@ -290,120 +289,6 @@ def delete_user():
     db.session.delete(user)
     db.session.commit()
     return success_response(user.serialize())
-
-#Pets endpoints
-@app.route("/pets/", methods=["GET"])
-def get_pets():
-    """Endpoint for getting all pets"""
-
-    pets = [pet.simple_serialize() for pet in Pets.query.all()]
-    return success_response({"pets": pets})
-
-@app.route("/pet/<int:pet_id>/")
-def get_pet_by_id(pet_id):
-    """Endpoint for getting a pet with id"""
-    pet = Pets.query.filter_by(id = pet_id).first()
-    if pet is None:
-        return failure_response("User not found!")
-    return success_response(pet.simple_serialize())
-
-@app.route("/user/pet/", methods = ["POST"])
-def create_pet():
-    body = json.loads(request.data)
-    name = body.get("name")
-    age = body.get("age")
-    gender = body.get('gender')
-    breed = body.get('breed')
-    category = body.get('category')
-
-    success, session_token = extract_token(request)
-
-    if not success:
-        return session_token
-    
-    user = users_dao.get_user_by_session_token(session_token)
-    if user is None:
-        return failure_response("User not found!")
-    if name is None or age is None or gender is None or breed is None or category is None:
-        return failure_response("Missing necessary information!")
-    
-    pet = Pets(name = name, age = age, gender = gender, breed=breed, category=category)
-
-    user.pets.append(pet)
-    db.session.add(pet)
-    db.session.commit()
-    return success_response(pet.serialize(), 201)
-
-@app.route("/pet/<int:pet_id>", methods = ["DELETE"])
-def delete_pet(pet_id):
-    """
-    Endpoint for deleting a pet with pet_id
-    """
-    pet = Pets.query.filter_by(id= pet_id).first()
-    if pet is None:
-        return failure_response("Pet not found!")
-    db.session.delete(pet)
-    db.session.commit()
-    return success_response(pet.serialize())
-
-@app.route("/user/pets/", methods = ["GET"])
-def get_user_pets():
-    """
-    Endpoint for getting all pets of a user
-    """
-    success, session_token = extract_token(request)
-
-    if not success:
-        return session_token
-    
-    user = users_dao.get_user_by_session_token(session_token)
-    if user is None:
-        return failure_response("User not found!")
-    pets = [pet.serialize() for pet in user.pets]
-    return success_response({"pets": pets})
-
-@app.route("/user/pet/<int:pet_id>/", methods = ["DELETE"])
-def remove_pet_from_user(pet_id):
-    """
-    Endpoint for removing a pet from a user
-    """
-
-    success, session_token = extract_token(request)
-
-    if not success:
-        return session_token
-    
-    user = users_dao.get_user_by_session_token(session_token)
-    if user is None:
-        return failure_response("User not found!")
-    pet = Pets.query.filter_by(id = pet_id).first()
-    if pet is None:
-        return failure_response("Pet not found!")
-    user.pets.remove(pet)
-    db.session.commit()
-    return success_response(pet.simple_serialize())
-
-@app.route("/pet/<int:pet_id>/", methods = ["PUT"])
-def update_pet(pet_id):
-    """
-    Endpoint for updating a pet
-    """
-    pet = Pets.query.filter_by(id = pet_id).first()
-    if pet is None:
-        return failure_response("Pet not found!")
-    data = request.get_json()
-    if "name" in data:
-        pet.name = data["name"]
-    if "age" in data:
-        pet.age = data["age"]
-    if "gender" in data:
-        pet.gender = data["gender"]
-    if "breed" in data:
-        pet.breed = data["breed"]
-    if "category" in data:
-        pet.category = data["category"]
-    db.session.commit()
-    return success_response(pet.simple_serialize())
 
 #Pet Sitting Request endpoints
 @app.route("/user/pet_sitting_request/", methods = ["POST"])
