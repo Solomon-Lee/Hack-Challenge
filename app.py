@@ -85,7 +85,6 @@ def register_account():
         }
     )
 
-
 @app.route("/login/", methods=["POST"])
 def login():
     """
@@ -249,6 +248,7 @@ def update_user():
     if user is None:
         return failure_response("User not found!")
 
+    
     data = request.get_json()
     if "phone" in data:
         user.phone = data["phone"]
@@ -262,6 +262,12 @@ def update_user():
         user.college_student = data["college_student"]
     if "pet_owner_boolean" in data:
         user.pet_owner_boolean = data["pet_owner_boolean"]
+    if "image_data" in data:
+        existing_asset = Asset.query.filter_by(user_id=user.id).first()
+        if existing_asset is not None:
+            db.session.delete(existing_asset)
+        asset = Asset(image_data=data["image_data"], user_id = user.id)
+        db.session.add(asset)
 
     db.session.commit()
     return success_response(user.serialize())
@@ -512,6 +518,12 @@ def update_pet_sitting_request(pet_sitting_request_id):
         pet_sitting_request.sitter_pay = data["sitter_pay"]
     if "sitter_housing" in data:
         pet_sitting_request.sitter_housing = data["sitter_housing"]
+    if "image_data" in data:
+        existing_asset = Asset.query.filter_by(pet_sitting_id = pet_sitting_request_id).first()
+        if existing_asset is not None:
+            db.session.delete(existing_asset)
+        asset = Asset(image_data=data["image_data"], pet_sitting_id = pet_sitting_request_id)
+        db.session.add(asset)
     db.session.commit()
     return success_response(pet_sitting_request.serialize(), 200)
 
@@ -662,6 +674,12 @@ def update_pet_adoption_request(pet_adoption_request_id):
         pet_adoption_request.food_supplies = data["food_supplies"]
     if "adopter_reward" in data:
         pet_adoption_request.adopter_reward = data["adopter_reward"]
+    if "image_data" in data:
+        existing_asset = Asset.query.filter_by(pet_adoption_id = pet_adoption_request_id).first()
+        if existing_asset is not None:
+            db.session.delete(existing_asset)
+        asset = Asset(image_data=data["image_data"], pet_adoption_id = pet_adoption_request_id)
+        db.session.add(asset)
     db.session.commit()
     return success_response(pet_adoption_request.serialize(), 200)
 
@@ -908,6 +926,9 @@ def upload_asset_to_pet_sitting(pet_sitting_id):
     if pet_sitting is None:
         return failure_response("Pet sitting not found!")
     
+    if len(pet_sitting.asset) >= 5:
+        return failure_response("Pet sitting already has the maximum number of assets!")
+    
     asset = Asset(image_data=image_data, pet_sitting_id = pet_sitting.id)
     db.session.add(asset)
     db.session.commit()
@@ -959,6 +980,9 @@ def upload_asset_to_pet_adoption(pet_adoption_id):
     pet_adoption = PetAdoptionRequest.query.filter_by(id=pet_adoption_id).first()
     if pet_adoption is None:
         return failure_response("Pet Adoption not found!")
+    
+    if len(pet_adoption.asset) >= 5:
+        return failure_response("Pet sitting already has the maximum number of assets!")
     
     asset = Asset(image_data=image_data, pet_adoption_id = pet_adoption.id)
     db.session.add(asset)
