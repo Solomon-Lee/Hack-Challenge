@@ -152,8 +152,6 @@ class User(db.Model):
     update_token = db.Column(db.String, nullable=False, unique=True)
 
     # Relationships
-    pets = db.relationship('Pets', backref='owner', lazy=True)
-
     pet_owner_sitting_requests = db.relationship('PetSittingRequest', backref='owner_sitter', lazy=True, foreign_keys='PetSittingRequest.pet_owner_id')
     pet_sitter_requests = db.relationship('PetSittingRequest', backref='sitter', lazy=True, foreign_keys='PetSittingRequest.pet_sitter_id')
 
@@ -201,7 +199,6 @@ class User(db.Model):
             "session_token": self.session_token,
             "update_token": self.update_token,
             "session_expiration": str(self.session_expiration),
-            "pets_as_owner": [p.simple_serialize() for p in self.pets],
             "pet_owner_sitting_requests": [r.serialize() for r in self.pet_owner_sitting_requests if r.pet_owner_id == self.id],
             "pet_sitter_requests": [r.serialize() for r in self.pet_sitter_requests if r.pet_sitter_id == self.id],
             "pet_owner_adoption_requests": [r.serialize() for r in self.pet_owner_adoption_requests if r.pet_owner_id == self.id],
@@ -273,65 +270,6 @@ class User(db.Model):
         Checks if the user has the specified role
         """
         return any(role.name == role_name for role in self.roles)
-
-    
-
-class Pets(db.Model):
-    """
-    Pets model
-    """
-
-    __tablename__ = 'pets'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String, nullable=False)
-    gender = db.Column(db.String, nullable=False)
-    age = db.Column(db.String, nullable=False)
-    category = db.Column(db.String, nullable=False)
-    breed = db.Column(db.String, nullable=False)
-
-    #Define relationship to user
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-
-    def __init__(self, **kwargs):
-        """
-        Initialize Pets Object
-        """
-        self.name = kwargs.get('name')
-        self.age = kwargs.get('age')
-        self.breed = kwargs.get('breed')
-        self.gender = kwargs.get('gender')
-        self.category = kwargs.get('category')
-        self.user_id = kwargs.get('user_id')
-
-
-    def serialize(self):
-        """
-        Serializes a user object
-        """
-
-        return {
-            "id": self.id,
-            "name": self.name,
-            "gender": self.gender,
-            "age": self.age,
-            "breed": self.breed,
-            "category": self.category,
-            "owner_id": self.user_id
-        }
-    
-    def simple_serialize(self):
-        """
-        Serializes a pets object without user
-        """
-
-        return {
-            "id": self.id,
-            "name": self.name,
-            "gender": self.gender,
-            "age": self.age,
-            "category": self.category,
-            "breed": self.breed,
-        }
 
 class PetSittingRequest(db.Model):
     __tablename__ = "pet_sitting_request"
