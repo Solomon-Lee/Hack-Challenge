@@ -1,9 +1,6 @@
 
 # PetPal
 
-![Logo](https://ioshackpetapp.s3.us-east-1.amazonaws.com/QQYU7G4TW7VJ3XSN.png)
-
-
 PetPal is an iOS app that allows users to post and accept pet sitting and pet adoption requests for housing or money.
 
 
