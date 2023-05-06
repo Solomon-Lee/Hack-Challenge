@@ -16,7 +16,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-EXTENSIONS = ["jpg", "jpeg", "png", "gif", "heic"]
+EXTENSIONS = ["jpg", "jpeg", "png", "gif"]
 BASE_DIR = os.getcwd()
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 S3_BASE_URL = f"https://{S3_BUCKET_NAME}.s3.us-east-1.amazonaws.com"
@@ -74,7 +74,7 @@ class Asset(db.Model):
 
             #Only accepts supported file extension
             if ext not in EXTENSIONS:
-                raise Exception("Extension {ext} not supported")
+                raise Exception(f"Extension {ext} not supported")
             
             #Generates a random string for image filename
             salt = "".join(
@@ -108,6 +108,8 @@ class Asset(db.Model):
         """
         try:
             img_temploc = f"{BASE_DIR}/{img_filename}"
+            img.save(img_temploc)
+            
             #upload image to S3
             s3_client = boto3.client("s3")
             s3_client.upload_file(img_temploc, S3_BUCKET_NAME, img_filename)
