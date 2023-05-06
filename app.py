@@ -444,7 +444,7 @@ def get_user_pet_sitting_requests():
     user = users_dao.get_user_by_session_token(session_token)
     if user is None:
         return failure_response("User not found!")
-    pet_owner_sitting_requests = [r.serialize() for r in user.pet_owner_requests]
+    pet_owner_sitting_requests = [r.serialize() for r in user.pet_owner_sitting_requests]
     pet_sitter_requests = [r.serialize() for r in user.pet_sitter_requests]
     return success_response({
         "pet_owner_sitting_requests": pet_owner_sitting_requests,
@@ -876,17 +876,16 @@ def upload_asset_to_pet_adoption(pet_adoption_id):
     return success_response(asset.serialize(), 201)
 
 @app.route("/upload/pet_adoption/<int:pet_adoption_id>", methods=["GET"])
-def get_pet_adoption_asset(pet_adoption_id):
+def get_all_pet_adoption_assets(pet_adoption_id):
     """
-    Endpoint for getting an asset
+    Endpoint for getting all assets in pet_sitting request
     """
     pet_adoption = PetAdoptionRequest.query.filter_by(id=pet_adoption_id).first()
     if pet_adoption is None:
         return failure_response("Pet adoption not found!")
-    asset = Asset.query.filter_by(pet_adoption_id=pet_adoption.id).first()
-    if asset is None:
-        return failure_response("Asset not found!")
-    return success_response(asset.serialize())
+    assets = Asset.query.filter_by(pet_adoption_id=pet_adoption.id).all()
+    serialized_assets = [a.serialize() for a in assets]
+    return success_response({"assets": serialized_assets})
 
 @app.route("/upload/pet_adoption/<int:pet_adoption_id>/<int:asset_id>", methods=["DELETE"])
 def delete_pet_adoption_asset(pet_adoption_id, asset_id):
@@ -910,15 +909,11 @@ def delete_pet_adoption_asset(pet_adoption_id, asset_id):
 
 
 #Openai integration
-def get_ai_help(user_id, pet_id, request_id, your_query_here):
+def get_ai_help(your_query_here):
     """
     Get openai response
     """
-    user = User.query.get(user_id)
-    pet = Pets.query.get(pet_id)
-    pet_sitting_request = PetSittingRequest.query.get(request_id)
-
-    prompt = f"User {user.first_name} has a pet named {pet.name} and a pet sitting request from {pet_sitting_request.start_date} to {pet_sitting_request.end_date}. {your_query_here}"
+    prompt = f"{your_query_here}"
     ai_response = generate_ai_response(prompt)
     return ai_response
 
