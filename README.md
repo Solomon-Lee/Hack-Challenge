@@ -13,7 +13,7 @@ PetPal is an iOS app that allows users to post and accept pet sitting and pet ad
 - [@EmanMiftahAbdu](https://github.com/EmanMiftahAbdu)
 - [@Eric](https://github.com/FrogCheese)
 - [@Wei](https://github.com/Grasshopper768)
-- [@Laura](https://github.com/sw2262004)
+- [@Laura](https://github.com/LauraWu547)
 
 
 ## Documentation
