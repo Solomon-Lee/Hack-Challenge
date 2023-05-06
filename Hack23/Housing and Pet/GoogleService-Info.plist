@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>266679501096-odqrj2h4r0culpl71p00sfnonkp6e36c.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.266679501096-odqrj2h4r0culpl71p00sfnonkp6e36c</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBPjuFHmdJ5KuYGo510KD2jT75iygnlMmU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>266679501096</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.Wei.Housing-and-Pet</string>
+	<key>PROJECT_ID</key>
+	<string>hack23-65768</string>
+	<key>STORAGE_BUCKET</key>
+	<string>hack23-65768.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:266679501096:ios:e3c78499d32164a59d501d</string>
+</dict>
+</plist>

@@ -1,0 +1,14 @@
+platform :ios, '13.0'
+
+target 'Housing and Pet' do
+  use_frameworks!
+
+  # Pods for Housing and Pet
+	pod 'FirebaseCore'
+	pod 'FirebaseAuth'
+	pod 'FirebaseFirestore'
+	pod 'FirebaseStorage' 
+	pod 'CustomSwitch', '~> 0.1'
+	pod 'Alamofire'
+
+end
